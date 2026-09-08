@@ -1,4 +1,4 @@
-package com.example.chatapp.theme
+package com.noatnoat.chatapp.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

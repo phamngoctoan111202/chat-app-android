@@ -1,16 +1,17 @@
 plugins {
   alias(libs.plugins.android.application)
-  alias(libs.plugins.compose.compiler)
+  alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "com.example.chatapp"
-    compileSdk = 36
+    namespace = "com.noatnoat.chatapp"
+    compileSdk = 34
+
     defaultConfig {
-        applicationId = "com.example.chatapp"
+        applicationId = "com.noatnoat.chatapp"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
     }
@@ -25,11 +26,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.8"
+    }
     buildFeatures {
       compose = true
-      aidl = false
       buildConfig = false
-      shaders = false
     }
 
     packaging {
@@ -44,6 +46,12 @@ kotlin {
 }
 
 dependencies {
+  // Core Modules
+  implementation(project(":core:crypto"))
+  implementation(project(":core:network"))
+  implementation(project(":core:database"))
+  implementation(project(":core:ads"))
+
   val composeBom = platform(libs.androidx.compose.bom)
   implementation(composeBom)
   androidTestImplementation(composeBom)
@@ -76,9 +84,4 @@ dependencies {
   androidTestImplementation(libs.androidx.test.ext.junit)
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.androidx.test.espresso.core)
-
-  // Navigation
-  implementation(libs.androidx.navigation3.ui)
-  implementation(libs.androidx.navigation3.runtime)
-  implementation(libs.androidx.lifecycle.viewmodel.navigation3)
 }

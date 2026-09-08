@@ -1,4 +1,4 @@
-package com.example.chatapp.ui.main
+package com.noatnoat.chatapp.ui.main
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
@@ -9,8 +9,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
-import com.example.chatapp.data.DefaultDataRepository
-import com.example.chatapp.theme.ChatAppTheme
+import com.noatnoat.chatapp.data.DefaultDataRepository
+import com.noatnoat.chatapp.theme.ChatAppTheme
 
 @Composable
 fun MainScreen(

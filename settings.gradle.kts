@@ -31,3 +31,7 @@ plugins {
 
 rootProject.name = "ChatApp"
 include(":app")
+include(":core:crypto")
+include(":core:network")
+include(":core:database")
+include(":core:ads")

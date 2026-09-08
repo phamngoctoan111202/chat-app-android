@@ -1,4 +1,4 @@
-package com.example.chatapp
+package com.noatnoat.chatapp
 
 import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable

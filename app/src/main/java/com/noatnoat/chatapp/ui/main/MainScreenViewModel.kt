@@ -1,9 +1,9 @@
-package com.example.chatapp.ui.main
+package com.noatnoat.chatapp.ui.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.chatapp.data.DataRepository
-import com.example.chatapp.ui.main.MainScreenUiState.Success
+import com.noatnoat.chatapp.data.DataRepository
+import com.noatnoat.chatapp.ui.main.MainScreenUiState.Success
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch

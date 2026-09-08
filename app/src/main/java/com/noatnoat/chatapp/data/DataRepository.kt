@@ -1,4 +1,4 @@
-package com.example.chatapp.data
+package com.noatnoat.chatapp.data
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
