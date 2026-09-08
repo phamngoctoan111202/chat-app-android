@@ -24,7 +24,7 @@ kotlin {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
-    implementation(libs.retrofit.core)
+    api(libs.retrofit.core)
     implementation(libs.okhttp.core)
     implementation(libs.okhttp.logging)
     implementation(libs.kotlinx.serialization.json)
