@@ -1,26 +1,37 @@
 package com.noatnoat.chatapp
 
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import com.noatnoat.chatapp.data.SecureSessionManager
+import com.noatnoat.chatapp.ui.auth.AuthUiState
 import com.noatnoat.chatapp.ui.auth.AuthViewModel
 import com.noatnoat.chatapp.ui.auth.PhoneOtpScreen
+import com.noatnoat.chatapp.ui.chat.ChatScreen
+import com.noatnoat.chatapp.ui.chat.ChatViewModel
 
 @Composable
 fun MainNavigation() {
     val context = LocalContext.current
     val sessionManager = remember { SecureSessionManager(context) }
     val authViewModel = remember { AuthViewModel(sessionManager = sessionManager) }
+    val chatViewModel = remember { ChatViewModel(sessionManager = sessionManager) }
 
-    PhoneOtpScreen(
-        viewModel = authViewModel,
-        onAuthSuccess = { userId ->
-            // Successfully logged in and keys uploaded to backend
+    val authState by authViewModel.uiState.collectAsState()
+
+    when (authState) {
+        is AuthUiState.Authenticated -> {
+            ChatScreen(
+                viewModel = chatViewModel,
+                onLogoutClick = { authViewModel.logout() }
+            )
         }
-    )
+        else -> {
+            PhoneOtpScreen(
+                viewModel = authViewModel
+            )
+        }
+    }
 }
