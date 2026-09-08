@@ -56,7 +56,7 @@ fun PhoneOtpScreen(
                 color = MaterialTheme.colorScheme.primary
             )
             Text(
-                text = "Bảo mật mã hóa đầu-cuối chuẩn Signal",
+                text = "Signal Protocol End-to-End Encryption",
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -68,7 +68,7 @@ fun PhoneOtpScreen(
                     OutlinedTextField(
                         value = phoneNumber,
                         onValueChange = { phoneNumber = it },
-                        label = { Text("Số điện thoại") },
+                        label = { Text("Phone Number") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -79,7 +79,7 @@ fun PhoneOtpScreen(
                         onClick = { viewModel.requestOtp(phoneNumber) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Gửi mã xác thực OTP")
+                        Text("Send OTP Verification Code")
                     }
 
                     if (state is AuthUiState.Error) {
@@ -95,12 +95,12 @@ fun PhoneOtpScreen(
                 is AuthUiState.Loading -> {
                     CircularProgressIndicator()
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Đang kết nối backend...")
+                    Text("Connecting to backend...")
                 }
 
                 is AuthUiState.OtpSent -> {
                     Text(
-                        text = "Mã OTP đã gửi tới ${state.phoneNumber}",
+                        text = "OTP code sent to ${state.phoneNumber}",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -110,7 +110,7 @@ fun PhoneOtpScreen(
                     OutlinedTextField(
                         value = otpCode,
                         onValueChange = { otpCode = it },
-                        label = { Text("Nhập mã OTP (Mặc định: 123456)") },
+                        label = { Text("Enter OTP Code (Default: 123456)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -121,17 +121,17 @@ fun PhoneOtpScreen(
                         onClick = { viewModel.verifyOtp(state.phoneNumber, otpCode) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Xác thực & Tạo khóa E2EE")
+                        Text("Verify & Generate E2EE Keys")
                     }
 
                     TextButton(onClick = { viewModel.logout() }) {
-                        Text("Đổi số điện thoại")
+                        Text("Change Phone Number")
                     }
                 }
 
                 is AuthUiState.Authenticated -> {
                     Text(
-                        text = "Đã đăng nhập thành công!",
+                        text = "Authentication Successful!",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -142,7 +142,7 @@ fun PhoneOtpScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "🔒 Khóa E2EE Signal đã được tạo & đồng bộ backend",
+                        text = "🔒 Signal E2EE keys generated & synced to backend",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.padding(top = 8.dp)
@@ -154,11 +154,11 @@ fun PhoneOtpScreen(
                         onClick = { onAuthSuccess(state.userId) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Vào ứng dụng Chat")
+                        Text("Enter Chat Application")
                     }
 
                     TextButton(onClick = { viewModel.logout() }) {
-                        Text("Đăng xuất")
+                        Text("Sign Out")
                     }
                 }
             }

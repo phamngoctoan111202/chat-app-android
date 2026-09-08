@@ -46,7 +46,7 @@ class ChatViewModel(
                 senderId = "peer_user_demo",
                 recipientId = currentUserId,
                 ciphertext = "ENC_DEMO_PAYLOAD",
-                decryptedText = "Xin chào! Đây là tin nhắn thử nghiệm mã hóa E2EE Signal.",
+                decryptedText = "Hello! This is a test message using Signal E2EE encryption.",
                 timestamp = System.currentTimeMillis() - 60000,
                 isOutbound = false,
                 status = "DELIVERED"

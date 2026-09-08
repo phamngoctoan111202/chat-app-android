@@ -48,7 +48,7 @@ class AuthViewModel(
 
     fun requestOtp(phoneNumber: String) {
         if (phoneNumber.isBlank()) {
-            _uiState.value = AuthUiState.Error("Vui lòng nhập số điện thoại hợp lệ")
+            _uiState.value = AuthUiState.Error("Please enter a valid phone number")
             return
         }
 
@@ -60,17 +60,17 @@ class AuthViewModel(
 
             when (response) {
                 is NetworkResponse.Success -> {
-                    val msg = response.data.message.ifBlank { "Mã OTP đã được gửi (OTP mặc định: 123456)" }
+                    val msg = response.data.message.ifBlank { "OTP verification code sent (Default OTP: 123456)" }
                     _uiState.value = AuthUiState.OtpSent(phoneNumber, msg)
                 }
                 is NetworkResponse.ApiError -> {
-                    _uiState.value = AuthUiState.Error("Lỗi API (${response.code}): ${response.message}")
+                    _uiState.value = AuthUiState.Error("API Error (${response.code}): ${response.message}")
                 }
                 is NetworkResponse.NetworkError -> {
-                    _uiState.value = AuthUiState.Error("Lỗi kết nối mạng: ${response.error.localizedMessage}")
+                    _uiState.value = AuthUiState.Error("Network connection error: ${response.error.localizedMessage}")
                 }
                 is NetworkResponse.UnknownError -> {
-                    _uiState.value = AuthUiState.Error("Lỗi không xác định")
+                    _uiState.value = AuthUiState.Error("Unknown authentication error")
                 }
             }
         }
@@ -78,7 +78,7 @@ class AuthViewModel(
 
     fun verifyOtp(phoneNumber: String, code: String) {
         if (code.length < 6) {
-            _uiState.value = AuthUiState.Error("Mã OTP phải có 6 chữ số")
+            _uiState.value = AuthUiState.Error("OTP code must be 6 digits")
             return
         }
 
@@ -122,13 +122,13 @@ class AuthViewModel(
                     )
                 }
                 is NetworkResponse.ApiError -> {
-                    _uiState.value = AuthUiState.Error("Mã OTP không đúng (${response.code})")
+                    _uiState.value = AuthUiState.Error("Invalid OTP code (${response.code})")
                 }
                 is NetworkResponse.NetworkError -> {
-                    _uiState.value = AuthUiState.Error("Lỗi kết nối: ${response.error.localizedMessage}")
+                    _uiState.value = AuthUiState.Error("Network error: ${response.error.localizedMessage}")
                 }
                 is NetworkResponse.UnknownError -> {
-                    _uiState.value = AuthUiState.Error("Lỗi xác thực không xác định")
+                    _uiState.value = AuthUiState.Error("Unknown error during OTP verification")
                 }
             }
         }

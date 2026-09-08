@@ -18,8 +18,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -35,7 +33,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -67,7 +64,7 @@ fun ChatScreen(
                             color = Color.White
                         )
                         Text(
-                            text = "Mã hóa E2EE Signal Khóa 256-bit",
+                            text = "Signal E2EE 256-bit Key Encryption",
                             fontSize = 12.sp,
                             color = Color(0xFFB0BEC5)
                         )
@@ -75,7 +72,7 @@ fun ChatScreen(
                 },
                 actions = {
                     Button(onClick = onLogoutClick) {
-                        Text("Đăng xuất", fontSize = 12.sp)
+                        Text("Sign Out", fontSize = 12.sp)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -121,7 +118,7 @@ fun ChatScreen(
                     OutlinedTextField(
                         value = inputText,
                         onValueChange = { inputText = it },
-                        placeholder = { Text("Nhập tin nhắn bảo mật Signal...") },
+                        placeholder = { Text("Type a secure Signal message...") },
                         modifier = Modifier.weight(1f),
                         maxLines = 3
                     )
@@ -137,7 +134,7 @@ fun ChatScreen(
                         },
                         enabled = !uiState.isSending && inputText.isNotBlank()
                     ) {
-                        Text(if (uiState.isSending) "..." else "Gửi")
+                        Text(if (uiState.isSending) "..." else "Send")
                     }
                 }
             }

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -34,7 +33,7 @@ fun BannerAdView(
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "📢 Quảng cáo Banner (AdMob Test)",
+            text = "📢 Banner Advertisement (AdMob Test)",
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             color = Color.DarkGray
