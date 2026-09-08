@@ -25,10 +25,6 @@ dependencyResolutionManagement {
     }
 }
 
-plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
-}
-
 rootProject.name = "ChatApp"
 include(":app")
 include(":core:crypto")
