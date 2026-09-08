@@ -48,7 +48,7 @@ object NetworkClient {
         return retrofit.create(ChatApiService::class.java)
     }
 
-    suspend fun <T> safeApiCall(apiCall: suspend () -> Response<T>): NetworkResponse<T> {
+    suspend inline fun <reified T> safeApiCall(crossinline apiCall: suspend () -> Response<T>): NetworkResponse<T> {
         return try {
             val response = apiCall()
             if (response.isSuccessful) {
@@ -56,8 +56,8 @@ object NetworkClient {
                 if (body != null) {
                     NetworkResponse.Success(body)
                 } else {
-                    @Suppress("UNCHECKED_CAST")
                     if (Unit is T) {
+                        @Suppress("UNCHECKED_CAST")
                         NetworkResponse.Success(Unit as T)
                     } else {
                         NetworkResponse.ApiError(response.code(), "Empty response body")
