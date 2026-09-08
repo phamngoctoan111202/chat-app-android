@@ -16,12 +16,10 @@ class AuthInterceptor(
 
         // Add JWT Bearer token if present
         val token = tokenProvider()
-        if (!token.isNull meEmpty()) {
+        if (!token.isNullOrBlank()) {
             builder.header("Authorization", "Bearer $token")
         }
 
         return chain.proceed(builder.build())
     }
-
-    private fun String?.isNullOrEmpty(): Boolean = this == null || this.trim().isEmpty()
 }

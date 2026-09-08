@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /home/noatnoat/work$$$$/personal_project/chat-app-android/core/network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest6385327848040030766.xml:2:13-83
+INJECTED from /home/noatnoat/work$$$$/personal_project/chat-app-android/core/network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest6385327848040030766.xml:2:13-83
+	package
+		INJECTED from /home/noatnoat/work$$$$/personal_project/chat-app-android/core/network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest6385327848040030766.xml
+	xmlns:android
+		ADDED from /home/noatnoat/work$$$$/personal_project/chat-app-android/core/network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest6385327848040030766.xml:2:23-81
+uses-sdk
+INJECTED from /home/noatnoat/work$$$$/personal_project/chat-app-android/core/network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest6385327848040030766.xml reason: use-sdk injection requested
+INJECTED from /home/noatnoat/work$$$$/personal_project/chat-app-android/core/network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest6385327848040030766.xml
+INJECTED from /home/noatnoat/work$$$$/personal_project/chat-app-android/core/network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest6385327848040030766.xml
+	android:targetSdkVersion
+		INJECTED from /home/noatnoat/work$$$$/personal_project/chat-app-android/core/network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest6385327848040030766.xml
+	android:minSdkVersion
+		INJECTED from /home/noatnoat/work$$$$/personal_project/chat-app-android/core/network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest6385327848040030766.xml
