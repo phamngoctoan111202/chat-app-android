@@ -15,11 +15,14 @@ import com.noatnoat.chatapp.ui.chat.ChatScreen
 import com.noatnoat.chatapp.ui.chat.ChatViewModel
 import com.noatnoat.chatapp.ui.conversation.ConversationListScreen
 import com.noatnoat.chatapp.ui.conversation.ConversationViewModel
+import com.noatnoat.chatapp.ui.debug.DebugLogScreen
+import com.noatnoat.chatapp.ui.debug.DebugLogViewModel
 
 sealed interface Screen {
     object Auth : Screen
     object ConversationList : Screen
     data class Chat(val peerUserId: String) : Screen
+    object DebugLog : Screen
 }
 
 @Composable
@@ -29,13 +32,14 @@ fun MainNavigation() {
     val authViewModel = remember { AuthViewModel(sessionManager = sessionManager) }
     val conversationViewModel = remember { ConversationViewModel(sessionManager = sessionManager) }
     val chatViewModel = remember { ChatViewModel(sessionManager = sessionManager) }
+    val debugLogViewModel = remember { DebugLogViewModel(sessionManager = sessionManager) }
 
     val authState by authViewModel.uiState.collectAsState()
     var currentScreen by remember { mutableStateOf<Screen>(Screen.ConversationList) }
 
     when (authState) {
         is AuthUiState.Authenticated -> {
-            when (val screen = currentScreen) {
+            when (currentScreen) {
                 is Screen.ConversationList -> {
                     ConversationListScreen(
                         viewModel = conversationViewModel,
@@ -51,6 +55,14 @@ fun MainNavigation() {
                     ChatScreen(
                         viewModel = chatViewModel,
                         onLogoutClick = {
+                            currentScreen = Screen.ConversationList
+                        }
+                    )
+                }
+                is Screen.DebugLog -> {
+                    DebugLogScreen(
+                        viewModel = debugLogViewModel,
+                        onBackClick = {
                             currentScreen = Screen.ConversationList
                         }
                     )
