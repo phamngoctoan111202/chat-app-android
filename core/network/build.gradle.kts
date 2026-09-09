@@ -24,6 +24,8 @@ kotlin {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    api(libs.kotlinx.coroutines.core)
+    api(libs.kotlinx.coroutines.android)
     api(libs.retrofit.core)
     implementation(libs.okhttp.core)
     implementation(libs.okhttp.logging)
