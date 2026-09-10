@@ -10,7 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.noatnoat.chatapp.data.SecureSessionManager
 import com.noatnoat.chatapp.ui.auth.AuthUiState
 import com.noatnoat.chatapp.ui.auth.AuthViewModel
-import com.noatnoat.chatapp.ui.auth.PhoneOtpScreen
+import com.noatnoat.chatapp.ui.auth.UnifiedAuthScreen
 import com.noatnoat.chatapp.ui.chat.ChatScreen
 import com.noatnoat.chatapp.ui.chat.ChatViewModel
 import com.noatnoat.chatapp.ui.conversation.ConversationListScreen
@@ -81,10 +81,13 @@ fun MainNavigation() {
             }
         }
         else -> {
-            PhoneOtpScreen(
+            UnifiedAuthScreen(
                 viewModel = authViewModel,
                 onAuthSuccess = {
                     currentScreen = Screen.ConversationList
+                },
+                onNavigateToDebugLogs = {
+                    currentScreen = Screen.DebugLog
                 }
             )
         }

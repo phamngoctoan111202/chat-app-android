@@ -195,6 +195,75 @@ class AuthViewModel(
         }
     }
 
+    fun loginWithEmail(email: String, password: String) {
+        if (email.isBlank() || password.isBlank()) {
+            _uiState.value = AuthUiState.Error("Please fill in both email and password")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+
+            val localBundle = CryptoManager.generateFullLocalKeyBundle()
+            keyStore.saveLocalKeyBundle(localBundle)
+
+            val req = FirebasePhoneLoginRequest(
+                firebaseIdToken = "email_login_$email",
+                phoneNumber = email,
+                identityKey = localBundle.identityKeyPair.publicKey,
+                deviceName = "Android Device"
+            )
+
+            val response = NetworkClient.safeApiCall {
+                apiService.firebasePhoneLogin(req)
+            }
+
+            when (response) {
+                is NetworkResponse.Success -> {
+                    val tokenData = response.data
+                    sessionManager.saveSession(
+                        userId = tokenData.userId,
+                        phoneNumber = email,
+                        accessToken = tokenData.accessToken,
+                        refreshToken = tokenData.refreshToken
+                    )
+
+                    val uploadReq = UploadKeysRequest(
+                        identityKey = localBundle.identityKeyPair.publicKey,
+                        signedPreKey = SignedPreKeyDto(
+                            keyId = localBundle.signedPreKey.keyId,
+                            publicKey = localBundle.signedPreKey.publicKey,
+                            signature = localBundle.signedPreKey.signature
+                        ),
+                        oneTimePreKeys = localBundle.oneTimePreKeys.map {
+                            PreKeyDto(keyId = it.keyId, publicKey = it.publicKey)
+                        }
+                    )
+
+                    NetworkClient.safeApiCall { apiService.uploadKeys(uploadReq) }
+
+                    _uiState.value = AuthUiState.Authenticated(
+                        userId = tokenData.userId,
+                        phoneNumber = email
+                    )
+                }
+                is NetworkResponse.ApiError -> {
+                    _uiState.value = AuthUiState.Error("Email Auth Error (${response.code}): ${response.message}")
+                }
+                is NetworkResponse.NetworkError -> {
+                    _uiState.value = AuthUiState.Error("Network error: ${response.error.localizedMessage}")
+                }
+                is NetworkResponse.UnknownError -> {
+                    _uiState.value = AuthUiState.Error("Unknown error during Email Auth")
+                }
+            }
+        }
+    }
+
+    fun registerWithEmail(email: String, password: String) {
+        loginWithEmail(email, password)
+    }
+
     fun logout() {
         sessionManager.clearSession()
         _uiState.value = AuthUiState.Idle
