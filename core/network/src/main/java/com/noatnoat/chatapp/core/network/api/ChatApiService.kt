@@ -1,6 +1,7 @@
 package com.noatnoat.chatapp.core.network.api
 
 import com.noatnoat.chatapp.core.network.dto.AuthTokenResponse
+import com.noatnoat.chatapp.core.network.dto.FirebasePhoneLoginRequest
 import com.noatnoat.chatapp.core.network.dto.HealthResponse
 import com.noatnoat.chatapp.core.network.dto.KeyBundleResponse
 import com.noatnoat.chatapp.core.network.dto.SendMessageRequest
@@ -29,6 +30,11 @@ interface ChatApiService {
     @POST("api/v1/auth/otp/verify")
     suspend fun verifyOtp(
         @Body request: VerifyOtpRequest
+    ): Response<AuthTokenResponse>
+
+    @POST("api/v1/auth/firebase-phone")
+    suspend fun firebasePhoneLogin(
+        @Body request: FirebasePhoneLoginRequest
     ): Response<AuthTokenResponse>
 
     @PUT("api/v1/keys")

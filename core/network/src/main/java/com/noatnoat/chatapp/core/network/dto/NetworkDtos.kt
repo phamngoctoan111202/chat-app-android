@@ -27,6 +27,14 @@ data class VerifyOtpRequest(
 )
 
 @Serializable
+data class FirebasePhoneLoginRequest(
+    @SerialName("firebase_id_token") val firebaseIdToken: String = "",
+    @SerialName("phone_number") val phoneNumber: String = "",
+    @SerialName("identity_key") val identityKey: String = "",
+    @SerialName("device_name") val deviceName: String = "Android Device"
+)
+
+@Serializable
 data class AuthTokenResponse(
     @SerialName("access_token") val accessToken: String = "",
     @SerialName("refresh_token") val refreshToken: String = "",

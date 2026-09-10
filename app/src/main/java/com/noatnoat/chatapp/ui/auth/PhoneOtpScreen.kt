@@ -110,7 +110,7 @@ fun PhoneOtpScreen(
                     OutlinedTextField(
                         value = otpCode,
                         onValueChange = { otpCode = it },
-                        label = { Text("Enter OTP Code (Default: 123456)") },
+                        label = { Text("Enter 6-digit SMS OTP Code") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )

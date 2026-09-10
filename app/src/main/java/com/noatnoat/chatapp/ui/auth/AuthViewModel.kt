@@ -6,6 +6,7 @@ import com.noatnoat.chatapp.core.crypto.CryptoManager
 import com.noatnoat.chatapp.core.crypto.SignalIdentityKeyStore
 import com.noatnoat.chatapp.core.network.NetworkClient
 import com.noatnoat.chatapp.core.network.api.ChatApiService
+import com.noatnoat.chatapp.core.network.dto.FirebasePhoneLoginRequest
 import com.noatnoat.chatapp.core.network.dto.PreKeyDto
 import com.noatnoat.chatapp.core.network.dto.SendOtpRequest
 import com.noatnoat.chatapp.core.network.dto.SignedPreKeyDto
@@ -129,6 +130,66 @@ class AuthViewModel(
                 }
                 is NetworkResponse.UnknownError -> {
                     _uiState.value = AuthUiState.Error("Unknown error during OTP verification")
+                }
+            }
+        }
+    }
+
+    fun loginWithFirebaseToken(idToken: String, phoneNumber: String) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+
+            val localBundle = CryptoManager.generateFullLocalKeyBundle()
+            keyStore.saveLocalKeyBundle(localBundle)
+
+            val req = FirebasePhoneLoginRequest(
+                firebaseIdToken = idToken,
+                phoneNumber = phoneNumber,
+                identityKey = localBundle.identityKeyPair.publicKey,
+                deviceName = "Android Device"
+            )
+
+            val response = NetworkClient.safeApiCall {
+                apiService.firebasePhoneLogin(req)
+            }
+
+            when (response) {
+                is NetworkResponse.Success -> {
+                    val tokenData = response.data
+                    sessionManager.saveSession(
+                        userId = tokenData.userId,
+                        phoneNumber = if (tokenData.phoneNumber.isNotBlank()) tokenData.phoneNumber else phoneNumber,
+                        accessToken = tokenData.accessToken,
+                        refreshToken = tokenData.refreshToken
+                    )
+
+                    val uploadReq = UploadKeysRequest(
+                        identityKey = localBundle.identityKeyPair.publicKey,
+                        signedPreKey = SignedPreKeyDto(
+                            keyId = localBundle.signedPreKey.keyId,
+                            publicKey = localBundle.signedPreKey.publicKey,
+                            signature = localBundle.signedPreKey.signature
+                        ),
+                        oneTimePreKeys = localBundle.oneTimePreKeys.map {
+                            PreKeyDto(keyId = it.keyId, publicKey = it.publicKey)
+                        }
+                    )
+
+                    NetworkClient.safeApiCall { apiService.uploadKeys(uploadReq) }
+
+                    _uiState.value = AuthUiState.Authenticated(
+                        userId = tokenData.userId,
+                        phoneNumber = if (tokenData.phoneNumber.isNotBlank()) tokenData.phoneNumber else phoneNumber
+                    )
+                }
+                is NetworkResponse.ApiError -> {
+                    _uiState.value = AuthUiState.Error("Firebase Auth Backend Error (${response.code}): ${response.message}")
+                }
+                is NetworkResponse.NetworkError -> {
+                    _uiState.value = AuthUiState.Error("Network error: ${response.error.localizedMessage}")
+                }
+                is NetworkResponse.UnknownError -> {
+                    _uiState.value = AuthUiState.Error("Unknown error during Firebase Phone Auth")
                 }
             }
         }
