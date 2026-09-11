@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "823753417660",
+    "project_id": "chatproject-e2ff2",
+    "storage_bucket": "chatproject-e2ff2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:823753417660:android:b344b90e06757ebed141b9",
+        "android_client_info": {
+          "package_name": "com.noatnoat.chatapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAoTfEiWgMx5yuKSJCcpv2voSoNKljPb5Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
