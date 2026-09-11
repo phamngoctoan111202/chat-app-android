@@ -195,9 +195,38 @@ class AuthViewModel(
         }
     }
 
-    fun loginWithEmail(email: String, password: String) {
-        if (email.isBlank() || password.isBlank()) {
-            _uiState.value = AuthUiState.Error("Please fill in both email and password")
+    fun sendEmailOtp(email: String) {
+        if (email.isBlank()) {
+            _uiState.value = AuthUiState.Error("Please enter a valid email address")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            val response = NetworkClient.safeApiCall {
+                apiService.sendEmailOtp(com.noatnoat.chatapp.core.network.dto.SendEmailOtpRequest(email = email))
+            }
+
+            when (response) {
+                is NetworkResponse.Success -> {
+                    _uiState.value = AuthUiState.OtpSent(email, response.data.message)
+                }
+                is NetworkResponse.ApiError -> {
+                    _uiState.value = AuthUiState.Error("Failed to send OTP (${response.code}): ${response.message}")
+                }
+                is NetworkResponse.NetworkError -> {
+                    _uiState.value = AuthUiState.Error("Network error: ${response.error.localizedMessage}")
+                }
+                is NetworkResponse.UnknownError -> {
+                    _uiState.value = AuthUiState.Error("Unknown error sending email OTP")
+                }
+            }
+        }
+    }
+
+    fun registerWithEmail(email: String, password: String, otpCode: String) {
+        if (email.isBlank() || password.isBlank() || otpCode.isBlank()) {
+            _uiState.value = AuthUiState.Error("Please fill in email, password, and 6-digit OTP code")
             return
         }
 
@@ -207,15 +236,16 @@ class AuthViewModel(
             val localBundle = CryptoManager.generateFullLocalKeyBundle()
             keyStore.saveLocalKeyBundle(localBundle)
 
-            val req = FirebasePhoneLoginRequest(
-                firebaseIdToken = "email_login_$email",
-                phoneNumber = email,
+            val req = com.noatnoat.chatapp.core.network.dto.RegisterEmailRequest(
+                email = email,
+                password = password,
+                otp = otpCode,
                 identityKey = localBundle.identityKeyPair.publicKey,
                 deviceName = "Android Device"
             )
 
             val response = NetworkClient.safeApiCall {
-                apiService.firebasePhoneLogin(req)
+                apiService.registerEmail(req)
             }
 
             when (response) {
@@ -248,7 +278,72 @@ class AuthViewModel(
                     )
                 }
                 is NetworkResponse.ApiError -> {
-                    _uiState.value = AuthUiState.Error("Email Auth Error (${response.code}): ${response.message}")
+                    _uiState.value = AuthUiState.Error("Registration Error (${response.code}): ${response.message}")
+                }
+                is NetworkResponse.NetworkError -> {
+                    _uiState.value = AuthUiState.Error("Network error: ${response.error.localizedMessage}")
+                }
+                is NetworkResponse.UnknownError -> {
+                    _uiState.value = AuthUiState.Error("Unknown error during email registration")
+                }
+            }
+        }
+    }
+
+    fun loginWithEmail(email: String, password: String) {
+        if (email.isBlank() || password.isBlank()) {
+            _uiState.value = AuthUiState.Error("Please fill in both email and password")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+
+            val localBundle = CryptoManager.generateFullLocalKeyBundle()
+            keyStore.saveLocalKeyBundle(localBundle)
+
+            val req = com.noatnoat.chatapp.core.network.dto.LoginEmailRequest(
+                email = email,
+                password = password,
+                identityKey = localBundle.identityKeyPair.publicKey,
+                deviceName = "Android Device"
+            )
+
+            val response = NetworkClient.safeApiCall {
+                apiService.loginEmail(req)
+            }
+
+            when (response) {
+                is NetworkResponse.Success -> {
+                    val tokenData = response.data
+                    sessionManager.saveSession(
+                        userId = tokenData.userId,
+                        phoneNumber = email,
+                        accessToken = tokenData.accessToken,
+                        refreshToken = tokenData.refreshToken
+                    )
+
+                    val uploadReq = UploadKeysRequest(
+                        identityKey = localBundle.identityKeyPair.publicKey,
+                        signedPreKey = SignedPreKeyDto(
+                            keyId = localBundle.signedPreKey.keyId,
+                            publicKey = localBundle.signedPreKey.publicKey,
+                            signature = localBundle.signedPreKey.signature
+                        ),
+                        oneTimePreKeys = localBundle.oneTimePreKeys.map {
+                            PreKeyDto(keyId = it.keyId, publicKey = it.publicKey)
+                        }
+                    )
+
+                    NetworkClient.safeApiCall { apiService.uploadKeys(uploadReq) }
+
+                    _uiState.value = AuthUiState.Authenticated(
+                        userId = tokenData.userId,
+                        phoneNumber = email
+                    )
+                }
+                is NetworkResponse.ApiError -> {
+                    _uiState.value = AuthUiState.Error("Email Login Error (${response.code}): ${response.message}")
                 }
                 is NetworkResponse.NetworkError -> {
                     _uiState.value = AuthUiState.Error("Network error: ${response.error.localizedMessage}")
@@ -258,10 +353,6 @@ class AuthViewModel(
                 }
             }
         }
-    }
-
-    fun registerWithEmail(email: String, password: String) {
-        loginWithEmail(email, password)
     }
 
     fun logout() {

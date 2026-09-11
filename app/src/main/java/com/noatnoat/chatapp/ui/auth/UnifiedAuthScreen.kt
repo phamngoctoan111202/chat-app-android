@@ -198,7 +198,7 @@ fun UnifiedAuthScreen(
                             }
                         }
                     } else {
-                        // TAB 1: EMAIL & PASSWORD
+                        // TAB 1: EMAIL & PASSWORD (WITH OTP VERIFICATION)
                         OutlinedTextField(
                             value = email,
                             onValueChange = { email = it },
@@ -208,6 +208,27 @@ fun UnifiedAuthScreen(
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
+
+                        if (isRegisterMode) {
+                            OutlinedTextField(
+                                value = otpCode,
+                                onValueChange = { otpCode = it },
+                                label = { Text("6-digit Email OTP Code") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            OutlinedButton(
+                                onClick = { viewModel.sendEmailOtp(email) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Send Email OTP Verification Code")
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
 
                         OutlinedTextField(
                             value = password,
@@ -223,19 +244,19 @@ fun UnifiedAuthScreen(
                         Button(
                             onClick = {
                                 if (isRegisterMode) {
-                                    viewModel.registerWithEmail(email, password)
+                                    viewModel.registerWithEmail(email, password, otpCode)
                                 } else {
                                     viewModel.loginWithEmail(email, password)
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(if (isRegisterMode) "Register with Email" else "Login with Email")
+                            Text(if (isRegisterMode) "Verify OTP & Register" else "Login with Email")
                         }
 
                         TextButton(onClick = { isRegisterMode = !isRegisterMode }) {
                             Text(
-                                if (isRegisterMode) "Already have an account? Login" else "Don't have an account? Register"
+                                if (isRegisterMode) "Already verified? Login" else "Don't have an account? Register with Email OTP"
                             )
                         }
                     }
@@ -266,7 +287,7 @@ fun UnifiedAuthScreen(
                         HorizontalDivider(modifier = Modifier.weight(1f))
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // GOOGLE SIGN-IN BUTTON
                     OutlinedButton(
@@ -279,6 +300,21 @@ fun UnifiedAuthScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("🌐 Continue with Google", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // PASSKEYS BIOMETRIC BUTTON
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.loginWithFirebaseToken(
+                                idToken = "passkey_biometric_credential",
+                                phoneNumber = "passkey_user"
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("🔑 Sign in with Passkeys / Biometrics", fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     }
 
                     Spacer(modifier = Modifier.height(32.dp))

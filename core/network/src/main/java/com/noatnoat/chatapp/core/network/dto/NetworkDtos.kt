@@ -27,6 +27,34 @@ data class VerifyOtpRequest(
 )
 
 @Serializable
+data class SendEmailOtpRequest(
+    @SerialName("email") val email: String
+)
+
+@Serializable
+data class SendEmailOtpResponse(
+    @SerialName("message") val message: String = "",
+    @SerialName("email") val email: String = ""
+)
+
+@Serializable
+data class RegisterEmailRequest(
+    @SerialName("email") val email: String,
+    @SerialName("password") val password: String,
+    @SerialName("otp") val otp: String = "",
+    @SerialName("identity_key") val identityKey: String = "",
+    @SerialName("device_name") val deviceName: String = "Android Device"
+)
+
+@Serializable
+data class LoginEmailRequest(
+    @SerialName("email") val email: String,
+    @SerialName("password") val password: String,
+    @SerialName("identity_key") val identityKey: String = "",
+    @SerialName("device_name") val deviceName: String = "Android Device"
+)
+
+@Serializable
 data class FirebasePhoneLoginRequest(
     @SerialName("firebase_id_token") val firebaseIdToken: String = "",
     @SerialName("phone_number") val phoneNumber: String = "",

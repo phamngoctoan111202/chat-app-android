@@ -37,6 +37,21 @@ interface ChatApiService {
         @Body request: FirebasePhoneLoginRequest
     ): Response<AuthTokenResponse>
 
+    @POST("api/v1/auth/email/send-otp")
+    suspend fun sendEmailOtp(
+        @Body request: com.noatnoat.chatapp.core.network.dto.SendEmailOtpRequest
+    ): Response<com.noatnoat.chatapp.core.network.dto.SendEmailOtpResponse>
+
+    @POST("api/v1/auth/email/register")
+    suspend fun registerEmail(
+        @Body request: com.noatnoat.chatapp.core.network.dto.RegisterEmailRequest
+    ): Response<AuthTokenResponse>
+
+    @POST("api/v1/auth/email/login")
+    suspend fun loginEmail(
+        @Body request: com.noatnoat.chatapp.core.network.dto.LoginEmailRequest
+    ): Response<AuthTokenResponse>
+
     @PUT("api/v1/keys")
     suspend fun uploadKeys(
         @Body request: UploadKeysRequest
