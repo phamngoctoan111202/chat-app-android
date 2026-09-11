@@ -14,6 +14,7 @@ import com.noatnoat.chatapp.core.network.dto.UploadKeysRequest
 import com.noatnoat.chatapp.core.network.dto.VerifyOtpRequest
 import com.noatnoat.chatapp.core.network.model.NetworkResponse
 import com.noatnoat.chatapp.data.SecureSessionManager
+import com.noatnoat.chatapp.core.network.logging.AppLogger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +36,10 @@ class AuthViewModel(
     )
 ) : ViewModel() {
 
+    private companion object {
+        const val TAG = "AuthViewModel"
+    }
+
     private val _uiState = MutableStateFlow<AuthUiState>(
         if (sessionManager.isLoggedIn()) {
             AuthUiState.Authenticated(
@@ -54,6 +59,7 @@ class AuthViewModel(
         }
 
         viewModelScope.launch {
+            AppLogger.i(TAG, "Requesting SMS OTP for phone number")
             _uiState.value = AuthUiState.Loading
             val response = NetworkClient.safeApiCall {
                 apiService.sendOtp(SendOtpRequest(phoneNumber = phoneNumber))
@@ -61,16 +67,20 @@ class AuthViewModel(
 
             when (response) {
                 is NetworkResponse.Success -> {
-                    val msg = response.data.message.ifBlank { "OTP verification code sent (Default OTP: 123456)" }
+                    AppLogger.i(TAG, "SMS OTP code requested successfully")
+                    val msg = response.data.message.ifBlank { "OTP verification code sent" }
                     _uiState.value = AuthUiState.OtpSent(phoneNumber, msg)
                 }
                 is NetworkResponse.ApiError -> {
+                    AppLogger.e(TAG, "SMS OTP API Error (${response.code}): ${response.message}")
                     _uiState.value = AuthUiState.Error("API Error (${response.code}): ${response.message}")
                 }
                 is NetworkResponse.NetworkError -> {
+                    AppLogger.e(TAG, "SMS OTP Network Error: ${response.error.localizedMessage}", response.error)
                     _uiState.value = AuthUiState.Error("Network connection error: ${response.error.localizedMessage}")
                 }
                 is NetworkResponse.UnknownError -> {
+                    AppLogger.e(TAG, "SMS OTP Unknown Error")
                     _uiState.value = AuthUiState.Error("Unknown authentication error")
                 }
             }
