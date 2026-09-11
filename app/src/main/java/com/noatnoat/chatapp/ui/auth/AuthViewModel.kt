@@ -20,10 +20,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+import android.app.Activity
+
 sealed interface AuthUiState {
     object Idle : AuthUiState
     object Loading : AuthUiState
     data class OtpSent(val phoneNumber: String, val message: String) : AuthUiState
+    data class FirebaseOtpSent(val phoneNumber: String, val verificationId: String) : AuthUiState
     data class Authenticated(val userId: String, val phoneNumber: String) : AuthUiState
     data class Error(val message: String) : AuthUiState
 }
@@ -52,6 +55,59 @@ class AuthViewModel(
     )
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
+    fun requestFirebaseOtp(activity: Activity, phoneNumber: String) {
+        if (phoneNumber.isBlank()) {
+            _uiState.value = AuthUiState.Error("Please enter a valid phone number (+84...)")
+            return
+        }
+
+        viewModelScope.launch {
+            AppLogger.i(TAG, "Requesting Firebase SMS OTP for phone number")
+            _uiState.value = AuthUiState.Loading
+
+            val result = FirebasePhoneAuthManager.startPhoneNumberVerification(activity, phoneNumber)
+            when (result) {
+                is FirebasePhoneAuthResult.CodeSent -> {
+                    AppLogger.i(TAG, "Firebase SMS OTP code dispatched successfully")
+                    _uiState.value = AuthUiState.FirebaseOtpSent(phoneNumber, result.verificationId)
+                }
+                is FirebasePhoneAuthResult.Completed -> {
+                    AppLogger.i(TAG, "Firebase Auto-Verification completed instantly")
+                    loginWithFirebaseToken(result.idToken, result.phoneNumber)
+                }
+                is FirebasePhoneAuthResult.Error -> {
+                    AppLogger.e(TAG, "Firebase Phone Auth Error: ${result.message}")
+                    _uiState.value = AuthUiState.Error("Firebase Phone Auth Error: ${result.message}")
+                }
+            }
+        }
+    }
+
+    fun verifyFirebaseOtp(verificationId: String, code: String) {
+        if (code.length < 6) {
+            _uiState.value = AuthUiState.Error("OTP code must be 6 digits")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            val result = FirebasePhoneAuthManager.verifyOtpCode(verificationId, code)
+            when (result) {
+                is FirebasePhoneAuthResult.Completed -> {
+                    AppLogger.i(TAG, "Firebase OTP verified. Exchanging IDToken for Session Token...")
+                    loginWithFirebaseToken(result.idToken, result.phoneNumber)
+                }
+                is FirebasePhoneAuthResult.Error -> {
+                    AppLogger.e(TAG, "Firebase OTP Verification Failed: ${result.message}")
+                    _uiState.value = AuthUiState.Error("Firebase Verification Failed: ${result.message}")
+                }
+                else -> {
+                    _uiState.value = AuthUiState.Error("Unexpected response during Firebase OTP verification")
+                }
+            }
+        }
+    }
+
     fun requestOtp(phoneNumber: String) {
         if (phoneNumber.isBlank()) {
             _uiState.value = AuthUiState.Error("Please enter a valid phone number")
@@ -59,7 +115,7 @@ class AuthViewModel(
         }
 
         viewModelScope.launch {
-            AppLogger.i(TAG, "Requesting SMS OTP for phone number")
+            AppLogger.i(TAG, "Requesting Backend SMS OTP for phone number")
             _uiState.value = AuthUiState.Loading
             val response = NetworkClient.safeApiCall {
                 apiService.sendOtp(SendOtpRequest(phoneNumber = phoneNumber))
@@ -67,7 +123,7 @@ class AuthViewModel(
 
             when (response) {
                 is NetworkResponse.Success -> {
-                    AppLogger.i(TAG, "SMS OTP code requested successfully")
+                    AppLogger.i(TAG, "Backend SMS OTP code requested successfully")
                     val msg = response.data.message.ifBlank { "OTP verification code sent" }
                     _uiState.value = AuthUiState.OtpSent(phoneNumber, msg)
                 }

@@ -44,12 +44,17 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import android.app.Activity
+import androidx.compose.ui.platform.LocalContext
+
 @Composable
 fun UnifiedAuthScreen(
     viewModel: AuthViewModel,
     onAuthSuccess: (userId: String) -> Unit = {},
     onNavigateToDebugLogs: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val activity = context as? Activity
     val uiState by viewModel.uiState.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Phone, 1: Email
 
@@ -149,10 +154,39 @@ fun UnifiedAuthScreen(
                     Spacer(modifier = Modifier.height(20.dp))
 
                     if (selectedTab == 0) {
-                        // TAB 0: PHONE OTP
-                        if (state is AuthUiState.OtpSent) {
+                        // TAB 0: PHONE OTP (FIREBASE SMS AUTH)
+                        if (state is AuthUiState.FirebaseOtpSent) {
                             Text(
-                                text = "OTP code sent to ${state.phoneNumber}",
+                                text = "Firebase SMS OTP code sent to ${state.phoneNumber}",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            OutlinedTextField(
+                                value = otpCode,
+                                onValueChange = { otpCode = it },
+                                label = { Text("Enter 6-digit Firebase SMS OTP Code") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Button(
+                                onClick = { viewModel.verifyFirebaseOtp(state.verificationId, otpCode) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Verify Firebase OTP & Login")
+                            }
+
+                            TextButton(onClick = { viewModel.logout() }) {
+                                Text("Change Phone Number")
+                            }
+                        } else if (state is AuthUiState.OtpSent) {
+                            Text(
+                                text = "Backend OTP code sent to ${state.phoneNumber}",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -173,7 +207,7 @@ fun UnifiedAuthScreen(
                                 onClick = { viewModel.verifyOtp(state.phoneNumber, otpCode) },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Verify & Login")
+                                Text("Verify Backend OTP & Login")
                             }
 
                             TextButton(onClick = { viewModel.logout() }) {
@@ -191,10 +225,16 @@ fun UnifiedAuthScreen(
                             Spacer(modifier = Modifier.height(16.dp))
 
                             Button(
-                                onClick = { viewModel.requestOtp(phoneNumber) },
+                                onClick = {
+                                    if (activity != null) {
+                                        viewModel.requestFirebaseOtp(activity, phoneNumber)
+                                    } else {
+                                        viewModel.requestOtp(phoneNumber)
+                                    }
+                                },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Send OTP Verification Code")
+                                Text("Send Firebase SMS OTP Verification Code")
                             }
                         }
                     } else {

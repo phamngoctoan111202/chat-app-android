@@ -129,6 +129,37 @@ fun PhoneOtpScreen(
                     }
                 }
 
+                is AuthUiState.FirebaseOtpSent -> {
+                    Text(
+                        text = "Firebase SMS OTP code sent to ${state.phoneNumber}",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = otpCode,
+                        onValueChange = { otpCode = it },
+                        label = { Text("Enter 6-digit Firebase SMS OTP Code") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = { viewModel.verifyFirebaseOtp(state.verificationId, otpCode) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Verify Firebase OTP & Generate E2EE Keys")
+                    }
+
+                    TextButton(onClick = { viewModel.logout() }) {
+                        Text("Change Phone Number")
+                    }
+                }
+
                 is AuthUiState.Authenticated -> {
                     Text(
                         text = "Authentication Successful!",
