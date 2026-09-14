@@ -110,3 +110,34 @@ data class SendMessageResponse(
     @SerialName("message_id") val messageId: String,
     @SerialName("timestamp") val timestamp: Long
 )
+
+@Serializable
+data class AttachmentUploadResponse(
+    @SerialName("attachment_id") val attachmentId: String = "",
+    @SerialName("url") val url: String = "",
+    @SerialName("digest") val digest: String = ""
+)
+
+@Serializable
+data class ReactionRequest(
+    @SerialName("message_id") val messageId: String,
+    @SerialName("emoji") val emoji: String
+)
+
+@Serializable
+data class PinRequest(
+    @SerialName("chat_id") val chatId: String,
+    @SerialName("message_id") val messageId: String
+)
+
+@Serializable
+data class CreatePollRequest(
+    @SerialName("question") val question: String,
+    @SerialName("options") val options: List<String>
+)
+
+@Serializable
+data class CastVoteRequest(
+    @SerialName("option_index") val optionIndex: Int
+)
+

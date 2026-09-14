@@ -66,4 +66,25 @@ interface ChatApiService {
     suspend fun sendMessage(
         @Body request: SendMessageRequest
     ): Response<SendMessageResponse>
+
+    @retrofit2.http.Multipart
+    @POST("api/v1/attachments/upload")
+    suspend fun uploadAttachment(
+        @retrofit2.http.Part file: okhttp3.MultipartBody.Part
+    ): Response<com.noatnoat.chatapp.core.network.dto.AttachmentUploadResponse>
+
+    @POST("api/v1/reactions")
+    suspend fun addReaction(
+        @Body request: com.noatnoat.chatapp.core.network.dto.ReactionRequest
+    ): Response<Unit>
+
+    @POST("api/v1/pins")
+    suspend fun pinMessage(
+        @Body request: com.noatnoat.chatapp.core.network.dto.PinRequest
+    ): Response<Unit>
+
+    @POST("api/v1/polls")
+    suspend fun createPoll(
+        @Body request: com.noatnoat.chatapp.core.network.dto.CreatePollRequest
+    ): Response<Unit>
 }
