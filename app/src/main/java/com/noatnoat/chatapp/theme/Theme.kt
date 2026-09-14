@@ -44,7 +44,6 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun ChatAppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Set to false to enforce branded Messenger Blue Theme
     content: @Composable () -> Unit,
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
