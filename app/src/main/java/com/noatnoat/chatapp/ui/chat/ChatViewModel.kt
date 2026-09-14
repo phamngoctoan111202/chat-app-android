@@ -135,7 +135,7 @@ class ChatViewModel(
         val currentMessages = _uiState.value.messages
         val updatedMessages = currentMessages.map { msg ->
             if (msg.messageId == messageId && msg.decryptedText?.startsWith("📊 POLL:") == true) {
-                val raw = msg.decryptedText
+                val raw = msg.decryptedText ?: ""
                 val parts = raw.substringAfter("📊 POLL: ").split(" | ")
                 val question = parts.firstOrNull() ?: ""
                 val optionsWithVotes = parts.drop(1).mapIndexed { idx, optStr ->
