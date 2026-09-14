@@ -10,19 +10,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -33,7 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,27 +63,61 @@ fun ChatScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "🔒 ${uiState.peerUserId}",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Signal E2EE 256-bit Key Encryption",
-                            fontSize = 12.sp,
-                            color = Color(0xFFB0BEC5)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val initial = uiState.peerUserId.takeLast(1).ifBlank { "U" }
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = initial,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Column {
+                            Text(
+                                text = uiState.peerUserId,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "End-to-End Encrypted",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onLogoutClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 actions = {
-                    Button(onClick = onLogoutClick) {
-                        Text("Sign Out", fontSize = 12.sp)
+                    TextButton(onClick = onLogoutClick) {
+                        Text(
+                            "Sign Out",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF075E54)
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         }
@@ -85,9 +126,8 @@ fun ChatScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(Color(0xFFECE5DD))
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            // AdMob Banner at top of chat list
             BannerAdView()
 
             // Chat Messages list
@@ -103,38 +143,51 @@ fun ChatScreen(
                 }
             }
 
-            // Bottom Input Bar
+            // Bottom Input Bar (Messenger Rounded Input Bar)
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shadowElevation = 8.dp,
+                shadowElevation = 4.dp,
                 color = MaterialTheme.colorScheme.surface
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
                         value = inputText,
                         onValueChange = { inputText = it },
-                        placeholder = { Text("Type a secure Signal message...") },
+                        placeholder = { Text("Type a message...") },
+                        shape = RoundedCornerShape(24.dp),
                         modifier = Modifier.weight(1f),
                         maxLines = 3
                     )
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    Button(
+                    IconButton(
                         onClick = {
                             if (inputText.isNotBlank()) {
                                 viewModel.sendMessage(inputText)
                                 inputText = ""
                             }
                         },
-                        enabled = !uiState.isSending && inputText.isNotBlank()
+                        enabled = !uiState.isSending && inputText.isNotBlank(),
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (inputText.isNotBlank()) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.surfaceVariant
+                            )
                     ) {
-                        Text(if (uiState.isSending) "..." else "Send")
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send",
+                            tint = if (inputText.isNotBlank()) MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -146,7 +199,19 @@ fun ChatScreen(
 fun MessageItemBubble(message: MessageEntity) {
     val isOutbound = message.isOutbound
     val alignment = if (isOutbound) Alignment.CenterEnd else Alignment.CenterStart
-    val bubbleColor = if (isOutbound) Color(0xFFDCF8C6) else Color.White
+
+    val bubbleColor = if (isOutbound) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+
+    val textColor = if (isOutbound) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
     val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
 
     Box(
@@ -156,18 +221,22 @@ fun MessageItemBubble(message: MessageEntity) {
         contentAlignment = alignment
     ) {
         Card(
-            shape = RoundedCornerShape(12.dp),
+            shape = if (isOutbound) {
+                RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp)
+            } else {
+                RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)
+            },
             colors = CardDefaults.cardColors(containerColor = bubbleColor),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             modifier = Modifier.padding(horizontal = 4.dp)
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
             ) {
                 Text(
                     text = message.decryptedText ?: message.ciphertext,
                     fontSize = 15.sp,
-                    color = Color.Black
+                    color = textColor
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -180,14 +249,7 @@ fun MessageItemBubble(message: MessageEntity) {
                     Text(
                         text = timeFormat.format(Date(message.timestamp)),
                         fontSize = 11.sp,
-                        color = Color.Gray
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "🔒 ${message.status}",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (message.status == "SENT" || message.status == "DELIVERED") Color(0xFF128C7E) else Color.Gray
+                        color = textColor.copy(alpha = 0.7f)
                     )
                 }
             }

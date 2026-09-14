@@ -17,13 +17,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -41,7 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,47 +73,62 @@ fun ConversationListScreen(
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "Signal E2EE Chats",
-                                fontSize = 18.sp,
+                                text = "Chats",
+                                fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             val connText = when (uiState.connectionState) {
-                                is WsState.Connected -> "🟢 Connected"
+                                is WsState.Connected -> "🟢 Online"
                                 is WsState.Connecting -> "🟡 Connecting..."
                                 else -> "🔴 Offline"
                             }
                             Text(
                                 text = connText,
                                 fontSize = 11.sp,
-                                color = Color(0xFFB0BEC5)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Text(
-                            text = "User ID: ${uiState.currentUserId}",
+                            text = "User: ${uiState.currentUserId}",
                             fontSize = 12.sp,
-                            color = Color(0xFFE0E0E0)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onLogoutClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 actions = {
                     TextButton(onClick = onLogoutClick) {
-                        Text("Sign Out", color = Color.White, fontSize = 12.sp)
+                        Text(
+                            "Sign Out",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF075E54)
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showNewChatDialog = true },
-                containerColor = Color(0xFF128C7E),
-                contentColor = Color.White
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = CircleShape
             ) {
-                Text("+ New", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Icon(imageVector = Icons.Default.Add, contentDescription = "New Chat")
             }
         }
     ) { innerPadding ->
@@ -121,7 +138,6 @@ fun ConversationListScreen(
                 .padding(innerPadding)
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // Banner Ad at top
             BannerAdView()
 
             if (uiState.conversations.isEmpty()) {
@@ -130,8 +146,8 @@ fun ConversationListScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No active conversations.\nTap + New to start an E2EE Chat!",
-                        color = Color.Gray,
+                        text = "No active conversations.\nTap + to start a new chat!",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
                     )
                 }
@@ -144,7 +160,10 @@ fun ConversationListScreen(
                             conversation = conv,
                             onClick = { onConversationClick(conv.peerUserId) }
                         )
-                        Divider(color = Color(0xFFEEEEEE))
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                            modifier = Modifier.padding(start = 76.dp)
+                        )
                     }
                 }
             }
@@ -154,12 +173,13 @@ fun ConversationListScreen(
     if (showNewChatDialog) {
         AlertDialog(
             onDismissRequest = { showNewChatDialog = false },
-            title = { Text("Start New Signal E2EE Chat") },
+            title = { Text("Start New Chat", fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = newPhoneInput,
                     onValueChange = { newPhoneInput = it },
-                    label = { Text("Enter Peer Phone Number (+84...)") },
+                    label = { Text("Phone Number (+84...)") },
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
             },
@@ -173,7 +193,8 @@ fun ConversationListScreen(
                             newPhoneInput = ""
                             onConversationClick(peerId)
                         }
-                    }
+                    },
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Text("Start Chat")
                 }
@@ -187,7 +208,6 @@ fun ConversationListScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConversationItemRow(
     conversation: ConversationEntity,
@@ -202,24 +222,23 @@ fun ConversationItemRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar circle with initial letter
         val initial = conversation.peerPhoneNumber.takeLast(1).ifBlank { "U" }
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(52.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF075E54)),
+                .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = initial,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp
             )
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(14.dp))
 
         Column(
             modifier = Modifier.weight(1f)
@@ -230,7 +249,7 @@ fun ConversationItemRow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "🔒 ${conversation.peerPhoneNumber}",
+                    text = conversation.peerPhoneNumber,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.onBackground
@@ -239,7 +258,7 @@ fun ConversationItemRow(
                 Text(
                     text = timeFormat.format(Date(conversation.lastTimestamp)),
                     fontSize = 12.sp,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -253,7 +272,7 @@ fun ConversationItemRow(
                 Text(
                     text = conversation.lastMessageText,
                     fontSize = 14.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
@@ -263,14 +282,14 @@ fun ConversationItemRow(
                     Box(
                         modifier = Modifier
                             .padding(start = 8.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF25D366))
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
                             .padding(horizontal = 8.dp, vertical = 2.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = conversation.unreadCount.toString(),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onPrimary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )

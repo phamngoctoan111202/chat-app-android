@@ -15,10 +15,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -61,22 +65,23 @@ fun DebugLogScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Submit Debug Log & Diagnostics",
+                        text = "System Diagnostics & Logs",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
-                    OutlinedButton(
-                        onClick = onBackClick,
-                        modifier = Modifier.padding(start = 8.dp)
-                    ) {
-                        Text("Back", color = Color.White, fontSize = 12.sp)
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF075E54)
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         }
@@ -94,21 +99,22 @@ fun DebugLogScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8E9)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
+                Column(modifier = Modifier.padding(14.dp)) {
                     Text(
                         text = "📱 System Diagnostics Report",
-                        fontSize = 14.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2E7D32)
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("App Version: ${uiState.diagnostics.appVersion}", fontSize = 12.sp)
-                    Text("OS: ${uiState.diagnostics.androidVersion}", fontSize = 12.sp)
-                    Text("Device: ${uiState.diagnostics.deviceModel}", fontSize = 12.sp)
-                    Text("Auth State: ${if (uiState.diagnostics.isLoggedIn) "Logged In (${uiState.diagnostics.userId})" else "Not Logged In"}", fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("App Version: ${uiState.diagnostics.appVersion}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text("OS: ${uiState.diagnostics.androidVersion}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text("Device: ${uiState.diagnostics.deviceModel}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text("Auth State: ${if (uiState.diagnostics.isLoggedIn) "Logged In (${uiState.diagnostics.userId})" else "Not Logged In"}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
             }
 
@@ -124,6 +130,7 @@ fun DebugLogScreen(
                         clipboardManager.setText(AnnotatedString(uiState.logTextReport))
                         Toast.makeText(context, "Debug log copied to clipboard!", Toast.LENGTH_SHORT).show()
                     },
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("Copy Report")
@@ -133,6 +140,7 @@ fun DebugLogScreen(
 
                 OutlinedButton(
                     onClick = { viewModel.loadReport() },
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("Refresh Logs")
@@ -161,18 +169,18 @@ fun DebugLogScreen(
 fun LogItemRow(log: LogEntity) {
     val dateFormat = remember { SimpleDateFormat("HH:mm:ss.SSS", Locale.US) }
     val levelColor = when (log.level) {
-        "ERROR" -> Color(0xFFD32F2F)
+        "ERROR" -> MaterialTheme.colorScheme.error
         "WARN" -> Color(0xFFF57C00)
-        "INFO" -> Color(0xFF1976D2)
-        else -> Color.DarkGray
+        "INFO" -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Card(
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF263238)),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(8.dp)) {
+        Column(modifier = Modifier.padding(10.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -194,7 +202,7 @@ fun LogItemRow(log: LogEntity) {
 
                 Text(
                     text = "${dateFormat.format(Date(log.timestamp))} [${log.tag}]",
-                    color = Color(0xFFB0BEC5),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace
                 )
@@ -204,7 +212,7 @@ fun LogItemRow(log: LogEntity) {
 
             Text(
                 text = log.message,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace
             )
