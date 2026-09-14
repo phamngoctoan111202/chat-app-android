@@ -196,4 +196,9 @@ class ChatViewModel(
     fun setEphemeralTimer(seconds: Int) {
         _uiState.value = _uiState.value.copy(ephemeralTimerSeconds = seconds)
     }
+
+    fun sendLiveLocation(latitude: Double, longitude: Double, addressName: String) {
+        val payload = "📍 LOCATION: $latitude,$longitude | $addressName"
+        sendMessage(payload)
+    }
 }

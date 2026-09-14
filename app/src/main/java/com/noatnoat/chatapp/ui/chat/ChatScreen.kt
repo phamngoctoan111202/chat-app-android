@@ -75,8 +75,8 @@ fun ChatScreen(
     var activeReactionMessage by remember { mutableStateOf<MessageEntity?>(null) }
 
     var showCreatePollDialog by remember { mutableStateOf(false) }
-
     var showEphemeralDialog by remember { mutableStateOf(false) }
+    var showLocationDialog by remember { mutableStateOf(false) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -288,6 +288,13 @@ fun ChatScreen(
                         Text("📊", fontSize = 18.sp)
                     }
 
+                    IconButton(
+                        onClick = { showLocationDialog = true }
+                    ) {
+                        Text("📍", fontSize = 18.sp)
+                    }sp)
+                    }
+
                     OutlinedTextField(
                         value = inputText,
                         onValueChange = { inputText = it },
@@ -480,6 +487,77 @@ fun ChatScreen(
                                     Text("✔", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Live Location Sharing Dialog
+    if (showLocationDialog) {
+        Dialog(onDismissRequest = { showLocationDialog = false }) {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(6.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Share Live Location 📍",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(130.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🗺️", fontSize = 36.sp)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text("GPS Signal Acquired (High Precision)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text("10.762622, 106.660172 • Ho Chi Minh City", fontSize = 11.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { showLocationDialog = false }
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    viewModel.sendLiveLocation(10.762622, 106.660172, "Ho Chi Minh City, Vietnam")
+                                    showLocationDialog = false
+                                }
+                                .background(MaterialTheme.colorScheme.primary)
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text("Share Now", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -775,6 +853,7 @@ fun MessageItemBubble(
     val textContent = message.decryptedText ?: message.ciphertext
     val isImage = textContent.startsWith("📷") || textContent.contains("Attached Image")
     val isPoll = textContent.startsWith("📊 POLL:")
+    val isLocation = textContent.startsWith("📍 LOCATION:")
 
     Box(
         modifier = Modifier
@@ -819,7 +898,39 @@ fun MessageItemBubble(
                         }
                     }
 
-                    if (isPoll) {
+                    if (isLocation) {
+                        val locPayload = textContent.substringAfter("📍 LOCATION: ")
+                        val coords = locPayload.substringBefore(" | ")
+                        val address = locPayload.substringAfter(" | ")
+                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("📍", fontSize = 18.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Live Location Shared",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = textColor
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    color = com.noatnoat.chatapp.theme.OnlineGreen,
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = "LIVE",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = androidx.compose.ui.graphics.Color.White,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(text = address, fontSize = 13.sp, color = textColor, fontWeight = FontWeight.Medium)
+                            Text(text = "Coordinates: $coords", fontSize = 11.sp, color = textColor.copy(alpha = 0.8f))
+                        }
+                    } else if (isPoll) {
                         val pollPayload = textContent.substringAfter("📊 POLL: ")
                         val parts = pollPayload.split(" | ")
                         val question = parts.firstOrNull() ?: "Poll"
