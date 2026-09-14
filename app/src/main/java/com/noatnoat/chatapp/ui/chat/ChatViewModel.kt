@@ -29,6 +29,7 @@ data class ChatUiState(
     val messages: List<MessageEntity> = emptyList(),
     val pinnedMessage: MessageEntity? = null,
     val activeCall: CallState? = null,
+    val ephemeralTimerSeconds: Int = 0, // 0 = Off, 30 = 30s, 300 = 5m
     val isSending: Boolean = false,
     val error: String? = null
 )
@@ -190,5 +191,9 @@ class ChatViewModel(
     fun toggleCamera() {
         val call = _uiState.value.activeCall ?: return
         _uiState.value = _uiState.value.copy(activeCall = call.copy(isCameraOn = !call.isCameraOn))
+    }
+
+    fun setEphemeralTimer(seconds: Int) {
+        _uiState.value = _uiState.value.copy(ephemeralTimerSeconds = seconds)
     }
 }

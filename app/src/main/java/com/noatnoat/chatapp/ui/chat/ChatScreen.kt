@@ -76,6 +76,8 @@ fun ChatScreen(
 
     var showCreatePollDialog by remember { mutableStateOf(false) }
 
+    var showEphemeralDialog by remember { mutableStateOf(false) }
+
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -128,9 +130,9 @@ fun ChatScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Active now • Encrypted",
+                                text = if (uiState.ephemeralTimerSeconds > 0) "⏱️ Disappearing ${uiState.ephemeralTimerSeconds}s" else "Active now • Encrypted",
                                 fontSize = 11.sp,
-                                color = com.noatnoat.chatapp.theme.OnlineGreen,
+                                color = if (uiState.ephemeralTimerSeconds > 0) MaterialTheme.colorScheme.primary else com.noatnoat.chatapp.theme.OnlineGreen,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -146,6 +148,16 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = { showEphemeralDialog = true },
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(if (uiState.ephemeralTimerSeconds > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Text("⏱️", fontSize = 16.sp)
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
                     IconButton(
                         onClick = { viewModel.startCall(isVideo = false) },
                         modifier = Modifier
@@ -397,6 +409,77 @@ fun ChatScreen(
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Text("Create", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Disappearing Messages Timer Selection Dialog
+    if (showEphemeralDialog) {
+        Dialog(onDismissRequest = { showEphemeralDialog = false }) {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Disappearing Messages ⏱️",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "New messages will automatically expire & disappear for all participants after the selected timer.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    listOf(
+                        0 to "Off",
+                        30 to "30 Seconds",
+                        300 to "5 Minutes",
+                        3600 to "1 Hour",
+                        86400 to "24 Hours"
+                    ).forEach { (seconds, label) ->
+                        val isSelected = uiState.ephemeralTimerSeconds == seconds
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    viewModel.setEphemeralTimer(seconds)
+                                    showEphemeralDialog = false
+                                },
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontSize = 14.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                )
+                                if (isSelected) {
+                                    Text("✔", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
                         }
                     }
                 }
