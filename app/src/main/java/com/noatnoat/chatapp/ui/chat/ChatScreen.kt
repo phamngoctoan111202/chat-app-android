@@ -90,22 +90,35 @@ fun ChatScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val initial = uiState.peerUserId.takeLast(1).ifBlank { "U" }
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = initial,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
+                        Box {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = initial,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 17.sp
+                                )
+                            }
+                            // Messenger Online Status Green Dot
+                            Box(
+                                modifier = Modifier
+                                    .size(11.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.background)
+                                    .padding(2.dp)
+                                    .clip(CircleShape)
+                                    .background(com.noatnoat.chatapp.theme.OnlineGreen)
+                                    .align(Alignment.BottomEnd)
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
 
                         Column {
                             Text(
@@ -115,9 +128,10 @@ fun ChatScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "End-to-End Encrypted",
+                                text = "Active now • Encrypted",
                                 fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = com.noatnoat.chatapp.theme.OnlineGreen,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }
@@ -132,11 +146,24 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.startCall(isVideo = false) }) {
-                        Text("📞", fontSize = 18.sp)
+                    IconButton(
+                        onClick = { viewModel.startCall(isVideo = false) },
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Text("📞", fontSize = 16.sp)
                     }
-                    IconButton(onClick = { viewModel.startCall(isVideo = true) }) {
-                        Text("📹", fontSize = 18.sp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    IconButton(
+                        onClick = { viewModel.startCall(isVideo = true) },
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Text("📹", fontSize = 16.sp)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -714,6 +741,10 @@ fun MessageItemBubble(
                         val parts = pollPayload.split(" | ")
                         val question = parts.firstOrNull() ?: "Poll"
                         val options = parts.drop(1)
+                        val voteCounts = options.map { optStr ->
+                            optStr.substringAfterLast("(").substringBefore(")").toIntOrNull() ?: 0
+                        }
+                        val totalVotes = voteCounts.sum().coerceAtLeast(1)
 
                         Column(modifier = Modifier.padding(vertical = 4.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -727,28 +758,53 @@ fun MessageItemBubble(
                                 )
                             }
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
                             options.forEachIndexed { index, optStr ->
                                 val optName = optStr.substringBeforeLast(" (")
-                                val voteCount = optStr.substringAfterLast("(").substringBefore(")").toIntOrNull() ?: 0
-                                Surface(
+                                val voteCount = voteCounts[index]
+                                val percentFraction = voteCount.toFloat() / totalVotes.toFloat()
+                                val percentInt = (percentFraction * 100).toInt()
+
+                                Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 3.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .clickable { onVoteOption(index) },
-                                    color = textColor.copy(alpha = 0.15f)
+                                        .padding(vertical = 4.dp)
+                                        .height(40.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(textColor.copy(alpha = 0.12f))
+                                        .clickable { onVoteOption(index) }
                                 ) {
+                                    // Messenger Blue / Light Fill Bar
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(percentFraction.coerceAtLeast(0.02f))
+                                            .fillMaxSize()
+                                            .background(
+                                                if (isOutbound) androidx.compose.ui.graphics.Color.White.copy(alpha = 0.35f)
+                                                else MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                                            )
+                                    )
+
                                     Row(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                            .fillMaxSize()
+                                            .padding(horizontal = 12.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(optName, fontSize = 14.sp, color = textColor, fontWeight = FontWeight.Medium)
-                                        Text("$voteCount votes", fontSize = 12.sp, color = textColor.copy(alpha = 0.8f))
+                                        Text(
+                                            text = optName,
+                                            fontSize = 14.sp,
+                                            color = textColor,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Text(
+                                            text = "$percentInt% ($voteCount)",
+                                            fontSize = 12.sp,
+                                            color = textColor.copy(alpha = 0.85f),
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
                                 }
                             }
