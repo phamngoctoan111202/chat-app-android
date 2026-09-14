@@ -125,6 +125,34 @@ class ChatViewModel(
         }
     }
 
+    fun sendPoll(question: String, options: List<String>) {
+        if (question.isBlank() || options.size < 2) return
+        val pollFormattedText = "📊 POLL: $question | " + options.joinToString(" | ") { "$it (0)" }
+        sendMessage(pollFormattedText)
+    }
+
+    fun votePoll(messageId: String, optionIndex: Int) {
+        val currentMessages = _uiState.value.messages
+        val updatedMessages = currentMessages.map { msg ->
+            if (msg.messageId == messageId && msg.decryptedText?.startsWith("📊 POLL:") == true) {
+                val raw = msg.decryptedText
+                val parts = raw.substringAfter("📊 POLL: ").split(" | ")
+                val question = parts.firstOrNull() ?: ""
+                val optionsWithVotes = parts.drop(1).mapIndexed { idx, optStr ->
+                    val optName = optStr.substringBeforeLast(" (")
+                    val currentCount = optStr.substringAfterLast("(").substringBefore(")").toIntOrNull() ?: 0
+                    val newCount = if (idx == optionIndex) currentCount + 1 else currentCount
+                    "$optName ($newCount)"
+                }
+                val newDecryptedText = "📊 POLL: $question | " + optionsWithVotes.joinToString(" | ")
+                msg.copy(decryptedText = newDecryptedText)
+            } else {
+                msg
+            }
+        }
+        _uiState.value = _uiState.value.copy(messages = updatedMessages)
+    }
+
     fun pinMessage(message: MessageEntity) {
         _uiState.value = _uiState.value.copy(
             pinnedMessage = if (_uiState.value.pinnedMessage?.messageId == message.messageId) null else message

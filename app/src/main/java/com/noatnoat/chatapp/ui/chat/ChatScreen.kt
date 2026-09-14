@@ -74,6 +74,8 @@ fun ChatScreen(
     val messageReactions = remember { mutableStateMapOf<String, String>() }
     var activeReactionMessage by remember { mutableStateOf<MessageEntity?>(null) }
 
+    var showCreatePollDialog by remember { mutableStateOf(false) }
+
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -205,7 +207,8 @@ fun ChatScreen(
                         message = msg,
                         reactionEmoji = messageReactions[msg.messageId],
                         onImageClick = { url -> previewImageDialogUrl = url },
-                        onLongClick = { activeReactionMessage = msg }
+                        onLongClick = { activeReactionMessage = msg },
+                        onVoteOption = { optIdx -> viewModel.votePoll(msg.messageId, optIdx) }
                     )
                 }
             }
@@ -230,6 +233,12 @@ fun ChatScreen(
                             contentDescription = "Attach Image",
                             tint = MaterialTheme.colorScheme.primary
                         )
+                    }
+
+                    IconButton(
+                        onClick = { showCreatePollDialog = true }
+                    ) {
+                        Text("📊", fontSize = 18.sp)
                     }
 
                     OutlinedTextField(
@@ -265,6 +274,95 @@ fun ChatScreen(
                             tint = if (inputText.isNotBlank()) MaterialTheme.colorScheme.onPrimary
                             else MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                }
+            }
+        }
+    }
+
+    // Create Poll Dialog
+    if (showCreatePollDialog) {
+        var pollQuestion by remember { mutableStateOf("") }
+        var option1 by remember { mutableStateOf("") }
+        var option2 by remember { mutableStateOf("") }
+
+        Dialog(onDismissRequest = { showCreatePollDialog = false }) {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Create Group Poll 📊",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    OutlinedTextField(
+                        value = pollQuestion,
+                        onValueChange = { pollQuestion = it },
+                        label = { Text("Poll Question") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = option1,
+                        onValueChange = { option1 = it },
+                        label = { Text("Option 1") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = option2,
+                        onValueChange = { option2 = it },
+                        label = { Text("Option 2") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { showCreatePollDialog = false }
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    if (pollQuestion.isNotBlank() && option1.isNotBlank() && option2.isNotBlank()) {
+                                        viewModel.sendPoll(pollQuestion, listOf(option1, option2))
+                                        showCreatePollDialog = false
+                                    }
+                                }
+                                .background(MaterialTheme.colorScheme.primary)
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text("Create", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -412,7 +510,8 @@ fun MessageItemBubble(
     message: MessageEntity,
     reactionEmoji: String? = null,
     onImageClick: (String) -> Unit = {},
-    onLongClick: () -> Unit = {}
+    onLongClick: () -> Unit = {},
+    onVoteOption: (Int) -> Unit = {}
 ) {
     val isOutbound = message.isOutbound
     val alignment = if (isOutbound) Alignment.CenterEnd else Alignment.CenterStart
@@ -432,6 +531,7 @@ fun MessageItemBubble(
     val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val textContent = message.decryptedText ?: message.ciphertext
     val isImage = textContent.startsWith("📷") || textContent.contains("Attached Image")
+    val isPoll = textContent.startsWith("📊 POLL:")
 
     Box(
         modifier = Modifier
@@ -476,11 +576,57 @@ fun MessageItemBubble(
                         }
                     }
 
-                    Text(
-                        text = textContent,
-                        fontSize = 15.sp,
-                        color = textColor
-                    )
+                    if (isPoll) {
+                        val pollPayload = textContent.substringAfter("📊 POLL: ")
+                        val parts = pollPayload.split(" | ")
+                        val question = parts.firstOrNull() ?: "Poll"
+                        val options = parts.drop(1)
+
+                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("📊", fontSize = 18.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = question,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = textColor
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            options.forEachIndexed { index, optStr ->
+                                val optName = optStr.substringBeforeLast(" (")
+                                val voteCount = optStr.substringAfterLast("(").substringBefore(")").toIntOrNull() ?: 0
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 3.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable { onVoteOption(index) },
+                                    color = textColor.copy(alpha = 0.15f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(optName, fontSize = 14.sp, color = textColor, fontWeight = FontWeight.Medium)
+                                        Text("$voteCount votes", fontSize = 12.sp, color = textColor.copy(alpha = 0.8f))
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = textContent,
+                            fontSize = 15.sp,
+                            color = textColor
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(4.dp))
 
