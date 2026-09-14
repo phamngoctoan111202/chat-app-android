@@ -3,8 +3,10 @@ package com.noatnoat.chatapp.ui.chat
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,10 +25,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.AddPhotoAlternate
-import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,13 +43,13 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,14 +68,16 @@ fun ChatScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var inputText by remember { mutableStateOf("") }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var previewImageDialogUrl by remember { mutableStateOf<String?>(null) }
+
+    // Map of messageId -> selected reaction emoji
+    val messageReactions = remember { mutableStateMapOf<String, String>() }
+    var activeReactionMessage by remember { mutableStateOf<MessageEntity?>(null) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            selectedImageUri = uri
             viewModel.sendMessage("📷 Attached Image: ${uri.lastPathSegment}")
         }
     }
@@ -151,12 +154,14 @@ fun ChatScreen(
                 items(uiState.messages) { msg ->
                     MessageItemBubble(
                         message = msg,
-                        onImageClick = { url -> previewImageDialogUrl = url }
+                        reactionEmoji = messageReactions[msg.messageId],
+                        onImageClick = { url -> previewImageDialogUrl = url },
+                        onLongClick = { activeReactionMessage = msg }
                     )
                 }
             }
 
-            // Bottom Input Bar (Messenger Rounded Input Bar with Photo Picker)
+            // Bottom Input Bar
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shadowElevation = 4.dp,
@@ -172,7 +177,7 @@ fun ChatScreen(
                         onClick = { imagePickerLauncher.launch("image/*") }
                     ) {
                         Icon(
-                            imageVector = Icons.Default.AddPhotoAlternate,
+                            imageVector = Icons.Default.Add,
                             contentDescription = "Attach Image",
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -217,6 +222,56 @@ fun ChatScreen(
         }
     }
 
+    // Emoji Reaction Picker Dialog
+    activeReactionMessage?.let { msg ->
+        Dialog(onDismissRequest = { activeReactionMessage = null }) {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "React to Message",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        listOf("❤️", "👍", "😂", "😮", "😢", "🙏").forEach { emoji ->
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
+                                    .clickable {
+                                        if (messageReactions[msg.messageId] == emoji) {
+                                            messageReactions.remove(msg.messageId)
+                                        } else {
+                                            messageReactions[msg.messageId] = emoji
+                                        }
+                                        activeReactionMessage = null
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(emoji, fontSize = 22.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Fullscreen Image Preview Dialog
     previewImageDialogUrl?.let { imageText ->
         Dialog(onDismissRequest = { previewImageDialogUrl = null }) {
@@ -253,11 +308,9 @@ fun ChatScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                imageVector = Icons.Default.Image,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.primary
+                            Text(
+                                text = "📷",
+                                fontSize = 48.sp
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
@@ -274,10 +327,13 @@ fun ChatScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MessageItemBubble(
     message: MessageEntity,
-    onImageClick: (String) -> Unit = {}
+    reactionEmoji: String? = null,
+    onImageClick: (String) -> Unit = {},
+    onLongClick: () -> Unit = {}
 ) {
     val isOutbound = message.isOutbound
     val alignment = if (isOutbound) Alignment.CenterEnd else Alignment.CenterStart
@@ -304,62 +360,76 @@ fun MessageItemBubble(
             .padding(vertical = 2.dp),
         contentAlignment = alignment
     ) {
-        Card(
-            shape = if (isOutbound) {
-                RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp)
-            } else {
-                RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)
-            },
-            colors = CardDefaults.cardColors(containerColor = bubbleColor),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            modifier = Modifier
-                .padding(horizontal = 4.dp)
-                .then(
-                    if (isImage) Modifier.clickable { onImageClick(textContent) } else Modifier
-                )
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+        Column(horizontalAlignment = if (isOutbound) Alignment.End else Alignment.Start) {
+            Card(
+                shape = if (isOutbound) {
+                    RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp)
+                } else {
+                    RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)
+                },
+                colors = CardDefaults.cardColors(containerColor = bubbleColor),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier
+                    .padding(horizontal = 4.dp)
+                    .combinedClickable(
+                        onClick = {
+                            if (isImage) onImageClick(textContent)
+                        },
+                        onLongClick = onLongClick
+                    )
             ) {
-                if (isImage) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    if (isImage) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        ) {
+                            Text("📷", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Encrypted Media Attachment",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = textColor
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = textContent,
+                        fontSize = 15.sp,
+                        color = textColor
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     Row(
+                        horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 4.dp)
+                        modifier = Modifier.align(Alignment.End)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Image,
-                            contentDescription = "Image",
-                            tint = textColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Encrypted Media Attachment",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = textColor
+                            text = timeFormat.format(Date(message.timestamp)),
+                            fontSize = 11.sp,
+                            color = textColor.copy(alpha = 0.7f)
                         )
                     }
                 }
+            }
 
-                Text(
-                    text = textContent,
-                    fontSize = 15.sp,
-                    color = textColor
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.align(Alignment.End)
+            // Display reaction badge at corner if present
+            reactionEmoji?.let { emoji ->
+                Box(
+                    modifier = Modifier
+                        .padding(top = (-6).dp, end = if (isOutbound) 8.dp else 0.dp, start = if (isOutbound) 0.dp else 8.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = timeFormat.format(Date(message.timestamp)),
-                        fontSize = 11.sp,
-                        color = textColor.copy(alpha = 0.7f)
-                    )
+                    Text(emoji, fontSize = 13.sp)
                 }
             }
         }
