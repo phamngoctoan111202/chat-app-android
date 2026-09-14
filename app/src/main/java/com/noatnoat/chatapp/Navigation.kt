@@ -17,6 +17,7 @@ import com.noatnoat.chatapp.ui.conversation.ConversationListScreen
 import com.noatnoat.chatapp.ui.conversation.ConversationViewModel
 import com.noatnoat.chatapp.ui.debug.DebugLogScreen
 import com.noatnoat.chatapp.ui.debug.DebugLogViewModel
+import com.noatnoat.chatapp.ui.settings.LinkedDevicesScreen
 import com.noatnoat.chatapp.ui.settings.SettingsScreen
 
 sealed interface Screen {
@@ -24,6 +25,7 @@ sealed interface Screen {
     object ConversationList : Screen
     data class Chat(val peerUserId: String) : Screen
     object Settings : Screen
+    object LinkedDevices : Screen
     object DebugLog : Screen
 }
 
@@ -70,8 +72,18 @@ fun MainNavigation() {
                         onNavigateToDebugLogs = {
                             currentScreen = Screen.DebugLog
                         },
+                        onNavigateToLinkedDevices = {
+                            currentScreen = Screen.LinkedDevices
+                        },
                         onLogoutClick = {
                             authViewModel.logout()
+                        }
+                    )
+                }
+                is Screen.LinkedDevices -> {
+                    LinkedDevicesScreen(
+                        onBackClick = {
+                            currentScreen = Screen.Settings
                         }
                     )
                 }

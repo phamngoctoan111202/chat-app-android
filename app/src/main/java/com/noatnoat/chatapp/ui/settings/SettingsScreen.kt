@@ -57,6 +57,7 @@ fun SettingsScreen(
     sessionManager: SecureSessionManager,
     onBackClick: () -> Unit = {},
     onNavigateToDebugLogs: () -> Unit = {},
+    onNavigateToLinkedDevices: () -> Unit = {},
     onLogoutClick: () -> Unit = {}
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -159,6 +160,18 @@ fun SettingsScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Column {
+                        SettingsRowItem(
+                            icon = Icons.Default.Add,
+                            title = "Linked Devices (QR Code)",
+                            subtitle = "Manage linked desktop apps and web clients",
+                            onClick = onNavigateToLinkedDevices
+                        )
+
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
+                            modifier = Modifier.padding(start = 56.dp)
+                        )
+
                         SettingsRowItem(
                             icon = Icons.Default.Build,
                             title = "System Diagnostics & Logs",
