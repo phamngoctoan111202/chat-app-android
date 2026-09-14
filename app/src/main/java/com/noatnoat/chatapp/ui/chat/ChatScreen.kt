@@ -143,6 +143,55 @@ fun ChatScreen(
         ) {
             BannerAdView()
 
+            // Pinned Message Header Banner
+            uiState.pinnedMessage?.let { pinnedMsg ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shadowElevation = 2.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("📌", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Pinned Message",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    text = pinnedMsg.decryptedText ?: pinnedMsg.ciphertext,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                        IconButton(
+                            onClick = { viewModel.unpinMessage() },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Unpin Message",
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                }
+            }
+
             // Chat Messages list
             LazyColumn(
                 modifier = Modifier
@@ -222,8 +271,9 @@ fun ChatScreen(
         }
     }
 
-    // Emoji Reaction Picker Dialog
+    // Emoji Reaction & Message Actions Picker Dialog
     activeReactionMessage?.let { msg ->
+        val isPinned = uiState.pinnedMessage?.messageId == msg.messageId
         Dialog(onDismissRequest = { activeReactionMessage = null }) {
             Card(
                 shape = RoundedCornerShape(24.dp),
@@ -265,6 +315,35 @@ fun ChatScreen(
                             ) {
                                 Text(emoji, fontSize = 22.sp)
                             }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Pin / Unpin Action Button
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                viewModel.pinMessage(msg)
+                                activeReactionMessage = null
+                            },
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text("📌", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isPinned) "Unpin Message" else "Pin Message to Top",
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                fontSize = 14.sp
+                            )
                         }
                     }
                 }

@@ -19,6 +19,7 @@ import java.util.UUID
 data class ChatUiState(
     val peerUserId: String = "peer_user_demo",
     val messages: List<MessageEntity> = emptyList(),
+    val pinnedMessage: MessageEntity? = null,
     val isSending: Boolean = false,
     val error: String? = null
 )
@@ -122,5 +123,15 @@ class ChatViewModel(
                 isSending = false
             )
         }
+    }
+
+    fun pinMessage(message: MessageEntity) {
+        _uiState.value = _uiState.value.copy(
+            pinnedMessage = if (_uiState.value.pinnedMessage?.messageId == message.messageId) null else message
+        )
+    }
+
+    fun unpinMessage() {
+        _uiState.value = _uiState.value.copy(pinnedMessage = null)
     }
 }
