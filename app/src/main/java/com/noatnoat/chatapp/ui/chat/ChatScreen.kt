@@ -77,6 +77,8 @@ fun ChatScreen(
     var showCreatePollDialog by remember { mutableStateOf(false) }
     var showEphemeralDialog by remember { mutableStateOf(false) }
     var showLocationDialog by remember { mutableStateOf(false) }
+    var showWatchTogetherDialog by remember { mutableStateOf(false) }
+    var activeWatchTogetherVideo by remember { mutableStateOf<String?>(null) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -255,7 +257,8 @@ fun ChatScreen(
                         reactionEmoji = messageReactions[msg.messageId],
                         onImageClick = { url -> previewImageDialogUrl = url },
                         onLongClick = { activeReactionMessage = msg },
-                        onVoteOption = { optIdx -> viewModel.votePoll(msg.messageId, optIdx) }
+                        onVoteOption = { optIdx -> viewModel.votePoll(msg.messageId, optIdx) },
+                        onWatchTogetherClick = { text -> activeWatchTogetherVideo = text.substringAfter("🎬 WATCH_TOGETHER: ") }
                     )
                 }
             }
@@ -292,7 +295,12 @@ fun ChatScreen(
                         onClick = { showLocationDialog = true }
                     ) {
                         Text("📍", fontSize = 18.sp)
-                    }sp)
+                    }
+
+                    IconButton(
+                        onClick = { showWatchTogetherDialog = true }
+                    ) {
+                        Text("🎬", fontSize = 18.sp)
                     }
 
                     OutlinedTextField(
@@ -558,6 +566,160 @@ fun ChatScreen(
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Text("Share Now", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Watch Together Room Creation Dialog
+    if (showWatchTogetherDialog) {
+        var videoUrlInput by remember { mutableStateOf("") }
+        var videoTitleInput by remember { mutableStateOf("") }
+
+        Dialog(onDismissRequest = { showWatchTogetherDialog = false }) {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(6.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Watch Together 🎬",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = videoUrlInput,
+                        onValueChange = { videoUrlInput = it },
+                        label = { Text("Video Stream URL (MP4 / YouTube)") },
+                        placeholder = { Text("https://example.com/video.mp4") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = videoTitleInput,
+                        onValueChange = { videoTitleInput = it },
+                        label = { Text("Session Title") },
+                        placeholder = { Text("Movie Night / Tech Talk") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { showWatchTogetherDialog = false }
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    if (videoUrlInput.isNotBlank()) {
+                                        viewModel.sendWatchTogetherRoom(videoUrlInput, videoTitleInput)
+                                        showWatchTogetherDialog = false
+                                    }
+                                }
+                                .background(MaterialTheme.colorScheme.primary)
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text("Start Session", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Synchronized Watch Together Player Dialog
+    activeWatchTogetherVideo?.let { videoInfo ->
+        val parts = videoInfo.split(" | ")
+        val url = parts.firstOrNull() ?: ""
+        val title = parts.drop(1).firstOrNull() ?: "Watch Together Session"
+        var isPlaying by remember { mutableStateOf(true) }
+
+        Dialog(onDismissRequest = { activeWatchTogetherVideo = null }) {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1)
+                        IconButton(onClick = { activeWatchTogetherVideo = null }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🎬", fontSize = 48.sp)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(if (isPlaying) "▶ Synchronized Video Streaming Active" else "⏸ Playback Paused for Room", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text(url, fontSize = 10.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f), maxLines = 1)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .clickable { isPlaying = !isPlaying }
+                                .background(MaterialTheme.colorScheme.primary)
+                                .padding(horizontal = 24.dp, vertical = 10.dp)
+                        ) {
+                            Text(
+                                text = if (isPlaying) "⏸ Pause for All" else "▶ Sync Play",
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
                         }
                     }
                 }
@@ -832,7 +994,8 @@ fun MessageItemBubble(
     reactionEmoji: String? = null,
     onImageClick: (String) -> Unit = {},
     onLongClick: () -> Unit = {},
-    onVoteOption: (Int) -> Unit = {}
+    onVoteOption: (Int) -> Unit = {},
+    onWatchTogetherClick: (String) -> Unit = {}
 ) {
     val isOutbound = message.isOutbound
     val alignment = if (isOutbound) Alignment.CenterEnd else Alignment.CenterStart
@@ -854,6 +1017,7 @@ fun MessageItemBubble(
     val isImage = textContent.startsWith("📷") || textContent.contains("Attached Image")
     val isPoll = textContent.startsWith("📊 POLL:")
     val isLocation = textContent.startsWith("📍 LOCATION:")
+    val isWatchTogether = textContent.startsWith("🎬 WATCH_TOGETHER:")
 
     Box(
         modifier = Modifier
@@ -875,6 +1039,7 @@ fun MessageItemBubble(
                     .combinedClickable(
                         onClick = {
                             if (isImage) onImageClick(textContent)
+                            else if (isWatchTogether) onWatchTogetherClick(textContent)
                         },
                         onLongClick = onLongClick
                     )
@@ -898,7 +1063,26 @@ fun MessageItemBubble(
                         }
                     }
 
-                    if (isLocation) {
+                    if (isWatchTogether) {
+                        val wtPayload = textContent.substringAfter("🎬 WATCH_TOGETHER: ")
+                        val videoTitle = wtPayload.substringAfter(" | ").ifBlank { "Watch Together Session" }
+                        val videoUrl = wtPayload.substringBefore(" | ")
+                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("🎬", fontSize = 18.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = videoTitle,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = textColor
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("▶ Tap to join synchronized video room", fontSize = 12.sp, color = textColor, fontWeight = FontWeight.Medium)
+                            Text(videoUrl, fontSize = 10.sp, color = textColor.copy(alpha = 0.7f), maxLines = 1)
+                        }
+                    } else if (isLocation) {
                         val locPayload = textContent.substringAfter("📍 LOCATION: ")
                         val coords = locPayload.substringBefore(" | ")
                         val address = locPayload.substringAfter(" | ")

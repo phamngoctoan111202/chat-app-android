@@ -201,4 +201,11 @@ class ChatViewModel(
         val payload = "📍 LOCATION: $latitude,$longitude | $addressName"
         sendMessage(payload)
     }
+
+    fun sendWatchTogetherRoom(videoUrl: String, videoTitle: String) {
+        if (videoUrl.isBlank()) return
+        val title = videoTitle.ifBlank { "Synchronized Video Session" }
+        val payload = "🎬 WATCH_TOGETHER: $videoUrl | $title"
+        sendMessage(payload)
+    }
 }
