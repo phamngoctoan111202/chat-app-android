@@ -59,7 +59,8 @@ fun UnifiedAuthScreen(
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Phone, 1: Email
 
     // Form states
-    var phoneNumber by remember { mutableStateOf("+84901234567") }
+    var selectedCountry by remember { mutableStateOf(defaultCountryList.first()) }
+    var rawPhoneNumber by remember { mutableStateOf("372824461") }
     var otpCode by remember { mutableStateOf("") }
 
     var email by remember { mutableStateOf("") }
@@ -214,27 +215,27 @@ fun UnifiedAuthScreen(
                                 Text("Change Phone Number")
                             }
                         } else {
-                            OutlinedTextField(
-                                value = phoneNumber,
-                                onValueChange = { phoneNumber = it },
-                                label = { Text("Phone Number (+84...)") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                                modifier = Modifier.fillMaxWidth()
+                            PhoneInputWithCountryPicker(
+                                rawPhoneNumber = rawPhoneNumber,
+                                onRawPhoneNumberChange = { rawPhoneNumber = it },
+                                selectedCountry = selectedCountry,
+                                onCountrySelected = { selectedCountry = it }
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
 
                             Button(
                                 onClick = {
+                                    val fullNumber = formatE164PhoneNumber(selectedCountry.dialCode, rawPhoneNumber)
                                     if (activity != null) {
-                                        viewModel.requestFirebaseOtp(activity, phoneNumber)
+                                        viewModel.requestFirebaseOtp(activity, fullNumber)
                                     } else {
-                                        viewModel.requestOtp(phoneNumber)
+                                        viewModel.requestOtp(fullNumber)
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Send Firebase SMS OTP Verification Code")
+                                Text("Send Firebase SMS OTP (${selectedCountry.dialCode})")
                             }
                         }
                     } else {

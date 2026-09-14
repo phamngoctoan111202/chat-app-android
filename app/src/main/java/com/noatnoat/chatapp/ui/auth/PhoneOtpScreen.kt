@@ -35,7 +35,8 @@ fun PhoneOtpScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    var phoneNumber by remember { mutableStateOf("+84901234567") }
+    var selectedCountry by remember { mutableStateOf(defaultCountryList.first()) }
+    var rawPhoneNumber by remember { mutableStateOf("372824461") }
     var otpCode by remember { mutableStateOf("123456") }
 
     Surface(
@@ -65,21 +66,23 @@ fun PhoneOtpScreen(
 
             when (val state = uiState) {
                 is AuthUiState.Idle, is AuthUiState.Error -> {
-                    OutlinedTextField(
-                        value = phoneNumber,
-                        onValueChange = { phoneNumber = it },
-                        label = { Text("Phone Number") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        modifier = Modifier.fillMaxWidth()
+                    PhoneInputWithCountryPicker(
+                        rawPhoneNumber = rawPhoneNumber,
+                        onRawPhoneNumberChange = { rawPhoneNumber = it },
+                        selectedCountry = selectedCountry,
+                        onCountrySelected = { selectedCountry = it }
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
-                        onClick = { viewModel.requestOtp(phoneNumber) },
+                        onClick = {
+                            val fullNumber = formatE164PhoneNumber(selectedCountry.dialCode, rawPhoneNumber)
+                            viewModel.requestOtp(fullNumber)
+                        },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Send OTP Verification Code")
+                        Text("Send OTP Verification Code (${selectedCountry.dialCode})")
                     }
 
                     if (state is AuthUiState.Error) {
