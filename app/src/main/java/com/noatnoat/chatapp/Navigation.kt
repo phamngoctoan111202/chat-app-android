@@ -41,7 +41,7 @@ fun MainNavigation() {
 
     when (authState) {
         is AuthUiState.Authenticated -> {
-            when (val screen = currentScreen) {
+            when (currentScreen) {
                 is Screen.ConversationList -> {
                     ConversationListScreen(
                         viewModel = conversationViewModel,
