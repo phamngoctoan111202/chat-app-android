@@ -20,10 +20,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -161,7 +160,7 @@ fun SettingsScreen(
                 ) {
                     Column {
                         SettingsRowItem(
-                            icon = Icons.Default.BugReport,
+                            icon = Icons.Default.Build,
                             title = "System Diagnostics & Logs",
                             subtitle = "View app logs, network state & report issues",
                             onClick = onNavigateToDebugLogs
@@ -260,7 +259,7 @@ private fun SettingsRowItem(
         }
 
         Icon(
-            imageVector = Icons.Default.ChevronRight,
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
         )
