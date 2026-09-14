@@ -18,8 +18,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,7 +60,7 @@ import java.util.Locale
 fun ConversationListScreen(
     viewModel: ConversationViewModel,
     onConversationClick: (peerUserId: String) -> Unit = {},
-    onLogoutClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showNewChatDialog by remember { mutableStateOf(false) }
@@ -70,50 +70,47 @@ fun ConversationListScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Chats",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            val connText = when (uiState.connectionState) {
-                                is WsState.Connected -> "🟢 Online"
-                                is WsState.Connecting -> "🟡 Connecting..."
-                                else -> "🔴 Offline"
-                            }
-                            Text(
-                                text = connText,
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Chats",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        val connText = when (uiState.connectionState) {
+                            is WsState.Connected -> "🟢 Online"
+                            is WsState.Connecting -> "🟡 Connecting..."
+                            else -> "🔴 Offline"
                         }
                         Text(
-                            text = "User: ${uiState.currentUserId}",
-                            fontSize = 12.sp,
+                            text = connText,
+                            fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onLogoutClick) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                },
-                actions = {
-                    TextButton(onClick = onLogoutClick) {
-                        Text(
-                            "Sign Out",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                    // Signal Style Profile Avatar Button (Opens Settings)
+                    IconButton(
+                        onClick = onSettingsClick,
+                        modifier = Modifier.padding(start = 4.dp)
+                    ) {
+                        val initial = uiState.currentUserId.takeLast(1).ifBlank { "U" }
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = initial,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

@@ -17,11 +17,13 @@ import com.noatnoat.chatapp.ui.conversation.ConversationListScreen
 import com.noatnoat.chatapp.ui.conversation.ConversationViewModel
 import com.noatnoat.chatapp.ui.debug.DebugLogScreen
 import com.noatnoat.chatapp.ui.debug.DebugLogViewModel
+import com.noatnoat.chatapp.ui.settings.SettingsScreen
 
 sealed interface Screen {
     object Auth : Screen
     object ConversationList : Screen
     data class Chat(val peerUserId: String) : Screen
+    object Settings : Screen
     object DebugLog : Screen
 }
 
@@ -39,23 +41,37 @@ fun MainNavigation() {
 
     when (authState) {
         is AuthUiState.Authenticated -> {
-            when (currentScreen) {
+            when (val screen = currentScreen) {
                 is Screen.ConversationList -> {
                     ConversationListScreen(
                         viewModel = conversationViewModel,
                         onConversationClick = { peerUserId ->
                             currentScreen = Screen.Chat(peerUserId)
                         },
-                        onLogoutClick = {
-                            authViewModel.logout()
+                        onSettingsClick = {
+                            currentScreen = Screen.Settings
                         }
                     )
                 }
                 is Screen.Chat -> {
                     ChatScreen(
                         viewModel = chatViewModel,
-                        onLogoutClick = {
+                        onBackClick = {
                             currentScreen = Screen.ConversationList
+                        }
+                    )
+                }
+                is Screen.Settings -> {
+                    SettingsScreen(
+                        sessionManager = sessionManager,
+                        onBackClick = {
+                            currentScreen = Screen.ConversationList
+                        },
+                        onNavigateToDebugLogs = {
+                            currentScreen = Screen.DebugLog
+                        },
+                        onLogoutClick = {
+                            authViewModel.logout()
                         }
                     )
                 }
@@ -63,7 +79,7 @@ fun MainNavigation() {
                     DebugLogScreen(
                         viewModel = debugLogViewModel,
                         onBackClick = {
-                            currentScreen = Screen.ConversationList
+                            currentScreen = Screen.Settings
                         }
                     )
                 }
@@ -73,23 +89,35 @@ fun MainNavigation() {
                         onConversationClick = { peerUserId ->
                             currentScreen = Screen.Chat(peerUserId)
                         },
-                        onLogoutClick = {
-                            authViewModel.logout()
+                        onSettingsClick = {
+                            currentScreen = Screen.Settings
                         }
                     )
                 }
             }
         }
         else -> {
-            UnifiedAuthScreen(
-                viewModel = authViewModel,
-                onAuthSuccess = {
-                    currentScreen = Screen.ConversationList
-                },
-                onNavigateToDebugLogs = {
-                    currentScreen = Screen.DebugLog
+            when (currentScreen) {
+                is Screen.DebugLog -> {
+                    DebugLogScreen(
+                        viewModel = debugLogViewModel,
+                        onBackClick = {
+                            currentScreen = Screen.Auth
+                        }
+                    )
                 }
-            )
+                else -> {
+                    UnifiedAuthScreen(
+                        viewModel = authViewModel,
+                        onAuthSuccess = {
+                            currentScreen = Screen.ConversationList
+                        },
+                        onNavigateToDebugLogs = {
+                            currentScreen = Screen.DebugLog
+                        }
+                    )
+                }
+            }
         }
     }
 }

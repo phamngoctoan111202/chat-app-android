@@ -29,7 +29,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -54,7 +53,7 @@ import java.util.Locale
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel,
-    onLogoutClick: () -> Unit = {}
+    onBackClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var inputText by remember { mutableStateOf("") }
@@ -98,21 +97,11 @@ fun ChatScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onLogoutClick) {
+                    IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
                             tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                },
-                actions = {
-                    TextButton(onClick = onLogoutClick) {
-                        Text(
-                            "Sign Out",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 },
