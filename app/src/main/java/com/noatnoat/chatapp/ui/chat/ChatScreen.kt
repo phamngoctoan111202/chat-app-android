@@ -47,6 +47,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,6 +67,7 @@ fun ChatScreen(
     viewModel: ChatViewModel,
     onBackClick: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     var inputText by remember { mutableStateOf("") }
     var previewImageDialogUrl by remember { mutableStateOf<String?>(null) }
@@ -161,7 +163,7 @@ fun ChatScreen(
                     }
                     Spacer(modifier = Modifier.width(6.dp))
                     IconButton(
-                        onClick = { viewModel.startCall(isVideo = false) },
+                        onClick = { viewModel.startCall(context, isVideo = false) },
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
@@ -171,7 +173,7 @@ fun ChatScreen(
                     }
                     Spacer(modifier = Modifier.width(6.dp))
                     IconButton(
-                        onClick = { viewModel.startCall(isVideo = true) },
+                        onClick = { viewModel.startCall(context, isVideo = true) },
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)

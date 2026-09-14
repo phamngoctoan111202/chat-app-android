@@ -1,5 +1,6 @@
 package com.noatnoat.chatapp.ui.chat
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.noatnoat.chatapp.core.crypto.CryptoManager
@@ -10,6 +11,7 @@ import com.noatnoat.chatapp.core.network.api.ChatApiService
 import com.noatnoat.chatapp.core.network.dto.SendMessageRequest
 import com.noatnoat.chatapp.core.network.model.NetworkResponse
 import com.noatnoat.chatapp.data.SecureSessionManager
+import com.noatnoat.chatapp.webrtc.WebRtcEngineManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,6 +48,7 @@ class ChatViewModel(
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     private var sharedSecret: ByteArray? = null
+    private var webRtcEngine: WebRtcEngineManager? = null
 
     init {
         // Pre-fill demo initial message
@@ -173,24 +176,48 @@ class ChatViewModel(
         _uiState.value = _uiState.value.copy(pinnedMessage = null)
     }
 
-    fun startCall(isVideo: Boolean) {
+    fun startCall(context: Context, isVideo: Boolean) {
+        webRtcEngine?.endCall()
+        webRtcEngine = WebRtcEngineManager(
+            context = context.applicationContext,
+            onConnectionStateChanged = { state ->
+                val call = _uiState.value.activeCall ?: return@WebRtcEngineManager
+                _uiState.value = _uiState.value.copy(
+                    activeCall = call.copy(status = "Signal WebRTC Peer: ${state.name}")
+                )
+            }
+        ).apply {
+            startCall(isVideo)
+        }
         _uiState.value = _uiState.value.copy(
-            activeCall = CallState(isCallActive = true, isVideo = isVideo)
+            activeCall = CallState(isCallActive = true, isVideo = isVideo, status = "Connecting Signal WebRTC E2EE Pipeline...")
         )
     }
 
     fun endCall() {
+        webRtcEngine?.endCall()
+        webRtcEngine = null
         _uiState.value = _uiState.value.copy(activeCall = null)
     }
 
     fun toggleMute() {
         val call = _uiState.value.activeCall ?: return
-        _uiState.value = _uiState.value.copy(activeCall = call.copy(isMuted = !call.isMuted))
+        val newMuted = !call.isMuted
+        webRtcEngine?.setMute(newMuted)
+        _uiState.value = _uiState.value.copy(activeCall = call.copy(isMuted = newMuted))
     }
 
     fun toggleCamera() {
         val call = _uiState.value.activeCall ?: return
-        _uiState.value = _uiState.value.copy(activeCall = call.copy(isCameraOn = !call.isCameraOn))
+        val newCamState = !call.isCameraOn
+        webRtcEngine?.setCameraEnabled(newCamState)
+        _uiState.value = _uiState.value.copy(activeCall = call.copy(isCameraOn = newCamState))
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        webRtcEngine?.endCall()
+        webRtcEngine = null
     }
 
     fun setEphemeralTimer(seconds: Int) {

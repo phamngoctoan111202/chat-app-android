@@ -81,6 +81,9 @@ dependencies {
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
 
+  // WebRTC Native Call SDK
+  implementation("io.github.webrtc-sdk:android:114.5735.02")
+
   // Local tests: jUnit, coroutines, Android runner
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
