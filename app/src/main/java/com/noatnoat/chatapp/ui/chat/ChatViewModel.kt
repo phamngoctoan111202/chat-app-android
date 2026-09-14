@@ -16,10 +16,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+data class CallState(
+    val isCallActive: Boolean = false,
+    val isVideo: Boolean = false,
+    val isMuted: Boolean = false,
+    val isCameraOn: Boolean = true,
+    val status: String = "Connecting Signal WebRTC E2EE..."
+)
+
 data class ChatUiState(
     val peerUserId: String = "peer_user_demo",
     val messages: List<MessageEntity> = emptyList(),
     val pinnedMessage: MessageEntity? = null,
+    val activeCall: CallState? = null,
     val isSending: Boolean = false,
     val error: String? = null
 )
@@ -161,5 +170,25 @@ class ChatViewModel(
 
     fun unpinMessage() {
         _uiState.value = _uiState.value.copy(pinnedMessage = null)
+    }
+
+    fun startCall(isVideo: Boolean) {
+        _uiState.value = _uiState.value.copy(
+            activeCall = CallState(isCallActive = true, isVideo = isVideo)
+        )
+    }
+
+    fun endCall() {
+        _uiState.value = _uiState.value.copy(activeCall = null)
+    }
+
+    fun toggleMute() {
+        val call = _uiState.value.activeCall ?: return
+        _uiState.value = _uiState.value.copy(activeCall = call.copy(isMuted = !call.isMuted))
+    }
+
+    fun toggleCamera() {
+        val call = _uiState.value.activeCall ?: return
+        _uiState.value = _uiState.value.copy(activeCall = call.copy(isCameraOn = !call.isCameraOn))
     }
 }

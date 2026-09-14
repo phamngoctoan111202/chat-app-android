@@ -131,6 +131,14 @@ fun ChatScreen(
                         )
                     }
                 },
+                actions = {
+                    IconButton(onClick = { viewModel.startCall(isVideo = false) }) {
+                        Text("📞", fontSize = 18.sp)
+                    }
+                    IconButton(onClick = { viewModel.startCall(isVideo = true) }) {
+                        Text("📹", fontSize = 18.sp)
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
@@ -496,6 +504,131 @@ fun ChatScreen(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 fontWeight = FontWeight.Medium
                             )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // WebRTC Audio/Video Call Screen Overlay Dialog
+    uiState.activeCall?.let { call ->
+        Dialog(onDismissRequest = { viewModel.endCall() }) {
+            Card(
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = if (call.isVideo) "📹 Video Call" else "📞 Voice Call",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .size(90.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = uiState.peerUserId.takeLast(1).ifBlank { "U" },
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = uiState.peerUserId,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = call.status,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Simulated Video Feed / Audio Visualizer
+                    if (call.isVideo && call.isCameraOn) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(140.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.secondaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("🎥 E2EE Video Stream Active", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("1080p WebRTC High Quality", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f))
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(20.dp))
+                    }
+
+                    // Call Action Controls
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Mute button
+                        Box(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(if (call.isMuted) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { viewModel.toggleMute() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(if (call.isMuted) "🔇" else "🎙️", fontSize = 22.sp)
+                        }
+
+                        // Toggle Camera (if Video Call)
+                        if (call.isVideo) {
+                            Box(
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(CircleShape)
+                                    .background(if (!call.isCameraOn) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable { viewModel.toggleCamera() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(if (call.isCameraOn) "📹" else "🚫", fontSize = 22.sp)
+                            }
+                        }
+
+                        // End Call Button
+                        Box(
+                            modifier = Modifier
+                                .size(58.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.error)
+                                .clickable { viewModel.endCall() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("🔴", fontSize = 24.sp)
                         }
                     }
                 }
