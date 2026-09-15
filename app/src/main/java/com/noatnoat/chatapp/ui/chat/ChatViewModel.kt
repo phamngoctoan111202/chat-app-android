@@ -51,22 +51,7 @@ class ChatViewModel(
     private var webRtcEngine: WebRtcEngineManager? = null
 
     init {
-        // Pre-fill demo initial message
-        val currentUserId = sessionManager.getUserId() ?: "my_user_id"
-        val initialMessages = listOf(
-            MessageEntity(
-                messageId = UUID.randomUUID().toString(),
-                conversationId = "conv_demo",
-                senderId = "peer_user_demo",
-                recipientId = currentUserId,
-                ciphertext = "ENC_DEMO_PAYLOAD",
-                decryptedText = "Hello! This is a test message using Signal E2EE encryption.",
-                timestamp = System.currentTimeMillis() - 60000,
-                isOutbound = false,
-                status = "DELIVERED"
-            )
-        )
-        _uiState.value = _uiState.value.copy(messages = initialMessages)
+        _uiState.value = _uiState.value.copy(messages = emptyList())
     }
 
     fun sendMessage(plainText: String) {

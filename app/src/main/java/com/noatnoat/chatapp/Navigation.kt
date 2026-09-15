@@ -1,5 +1,6 @@
 package com.noatnoat.chatapp
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -40,6 +41,15 @@ fun MainNavigation() {
 
     val authState by authViewModel.uiState.collectAsState()
     var currentScreen by remember { mutableStateOf<Screen>(Screen.ConversationList) }
+
+    val isBackHandlerEnabled = currentScreen !is Screen.ConversationList && currentScreen !is Screen.Auth
+    BackHandler(enabled = isBackHandlerEnabled) {
+        when (currentScreen) {
+            is Screen.Chat, is Screen.Settings -> currentScreen = Screen.ConversationList
+            is Screen.LinkedDevices, is Screen.DebugLog -> currentScreen = Screen.Settings
+            else -> {}
+        }
+    }
 
     when (authState) {
         is AuthUiState.Authenticated -> {

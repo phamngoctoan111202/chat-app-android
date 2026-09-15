@@ -28,20 +28,7 @@ class ConversationViewModel(
 
     init {
         val userId = sessionManager.getUserId() ?: "my_user_id"
-        _uiState.value = _uiState.value.copy(currentUserId = userId)
-
-        // Pre-fill initial conversation list
-        val defaultConversations = listOf(
-            ConversationEntity(
-                conversationId = "conv_peer_demo",
-                peerUserId = "peer_user_demo",
-                peerPhoneNumber = "+84909999888",
-                lastMessageText = "Hello! This is a test message using Signal E2EE encryption.",
-                lastTimestamp = System.currentTimeMillis() - 60000,
-                unreadCount = 1
-            )
-        )
-        _uiState.value = _uiState.value.copy(conversations = defaultConversations)
+        _uiState.value = _uiState.value.copy(currentUserId = userId, conversations = emptyList())
 
         // Connect to WebSocket Gateway
         wsManager.connect(userId)
