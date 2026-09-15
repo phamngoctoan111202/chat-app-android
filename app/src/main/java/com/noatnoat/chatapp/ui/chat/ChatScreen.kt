@@ -268,76 +268,181 @@ fun ChatScreen(
             // Bottom Input Bar
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shadowElevation = 4.dp,
+                shadowElevation = 8.dp,
                 color = MaterialTheme.colorScheme.surface
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
                 ) {
-                    IconButton(
-                        onClick = { imagePickerLauncher.launch("image/*") }
+                    // Expandable Action Badges Row (Media, Poll, Location, Watch Together)
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = showAttachmentOptions,
+                        enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
+                        exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically()
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Attach Image",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    IconButton(
-                        onClick = { showCreatePollDialog = true }
-                    ) {
-                        Text("📊", fontSize = 18.sp)
-                    }
-
-                    IconButton(
-                        onClick = { showLocationDialog = true }
-                    ) {
-                        Text("📍", fontSize = 18.sp)
-                    }
-
-                    IconButton(
-                        onClick = { showWatchTogetherDialog = true }
-                    ) {
-                        Text("🎬", fontSize = 18.sp)
-                    }
-
-                    OutlinedTextField(
-                        value = inputText,
-                        onValueChange = { inputText = it },
-                        placeholder = { Text("Type a message...") },
-                        shape = RoundedCornerShape(24.dp),
-                        modifier = Modifier.weight(1f),
-                        maxLines = 3
-                    )
-
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    IconButton(
-                        onClick = {
-                            if (inputText.isNotBlank()) {
-                                viewModel.sendMessage(inputText)
-                                inputText = ""
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp, start = 4.dp, end = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Media Picker Action Badge
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable {
+                                        showAttachmentOptions = false
+                                        imagePickerLauncher.launch("image/*")
+                                    },
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("🖼️", fontSize = 16.sp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Gallery", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                }
                             }
-                        },
-                        enabled = !uiState.isSending && inputText.isNotBlank(),
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (inputText.isNotBlank()) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.surfaceVariant
-                            )
+
+                            // Poll Action Badge
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable {
+                                        showAttachmentOptions = false
+                                        showCreatePollDialog = true
+                                    },
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("📊", fontSize = 16.sp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Poll", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                }
+                            }
+
+                            // Location Action Badge
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable {
+                                        showAttachmentOptions = false
+                                        showLocationDialog = true
+                                    },
+                                color = MaterialTheme.colorScheme.tertiaryContainer
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("📍", fontSize = 16.sp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Location", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                }
+                            }
+
+                            // Watch Together Badge
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable {
+                                        showAttachmentOptions = false
+                                        showWatchTogetherDialog = true
+                                    },
+                                color = MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("🎬", fontSize = 16.sp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Watch", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+
+                    // Main Input Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Bottom
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send",
-                            tint = if (inputText.isNotBlank()) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        // Toggle Attachment Drawer Button
+                        IconButton(
+                            onClick = { showAttachmentOptions = !showAttachmentOptions },
+                            modifier = Modifier
+                                .padding(bottom = 4.dp)
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (showAttachmentOptions) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.primaryContainer
+                                )
+                        ) {
+                            Icon(
+                                imageVector = if (showAttachmentOptions) Icons.Default.Close else Icons.Default.Add,
+                                contentDescription = "Toggle Attachments",
+                                tint = if (showAttachmentOptions) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        // Multi-line Expandable Text Field
+                        androidx.compose.material3.OutlinedTextField(
+                            value = inputText,
+                            onValueChange = { inputText = it },
+                            placeholder = { Text("Message...", fontSize = 14.sp) },
+                            shape = RoundedCornerShape(24.dp),
+                            modifier = Modifier.weight(1f),
+                            minLines = 1,
+                            maxLines = 5,
+                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent
+                            )
                         )
+
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        // Send Button
+                        IconButton(
+                            onClick = {
+                                if (inputText.isNotBlank()) {
+                                    viewModel.sendMessage(inputText)
+                                    inputText = ""
+                                    showAttachmentOptions = false
+                                }
+                            },
+                            enabled = !uiState.isSending && inputText.isNotBlank(),
+                            modifier = Modifier
+                                .padding(bottom = 4.dp)
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (inputText.isNotBlank()) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Send",
+                                tint = if (inputText.isNotBlank()) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                        }
                     }
                 }
             }
