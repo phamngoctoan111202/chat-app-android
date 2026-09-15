@@ -24,6 +24,12 @@ class SecureSessionManager(context: Context) {
 
     fun getPhoneNumber(): String? = prefs.getString(KEY_PHONE_NUMBER, null)
 
+    fun saveAvatarUrl(url: String) {
+        prefs.edit().putString(KEY_AVATAR_URL, url).apply()
+    }
+
+    fun getAvatarUrl(): String? = prefs.getString(KEY_AVATAR_URL, null)
+
     fun isLoggedIn(): Boolean = !getAccessToken().isNullOrBlank()
 
     fun clearSession() {
@@ -36,5 +42,6 @@ class SecureSessionManager(context: Context) {
         private const val KEY_PHONE_NUMBER = "phone_number"
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_REFRESH_TOKEN = "refresh_token"
+        private const val KEY_AVATAR_URL = "avatar_url"
     }
 }

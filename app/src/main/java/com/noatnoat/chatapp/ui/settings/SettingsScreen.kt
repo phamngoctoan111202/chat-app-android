@@ -52,6 +52,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noatnoat.chatapp.data.SecureSessionManager
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import coil.compose.AsyncImage
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -62,8 +67,18 @@ fun SettingsScreen(
     onLogoutClick: () -> Unit = {}
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var currentAvatarUrl by remember { mutableStateOf(sessionManager.getAvatarUrl()) }
     val userId = sessionManager.getUserId() ?: "Unknown"
     val phoneNumber = sessionManager.getPhoneNumber() ?: "No phone registered"
+
+    val avatarPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            sessionManager.saveAvatarUrl(uri.toString())
+            currentAvatarUrl = uri.toString()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -119,17 +134,38 @@ fun SettingsScreen(
                         val initial = phoneNumber.takeLast(1).ifBlank { "U" }
                         Box(
                             modifier = Modifier
-                                .size(64.dp)
+                                .size(68.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
+                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                .clickable { avatarPickerLauncher.launch("image/*") },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = initial,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                fontSize = 26.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            if (!currentAvatarUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = currentAvatarUrl,
+                                    contentDescription = "User Avatar",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                )
+                            } else {
+                                Text(
+                                    text = initial,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    fontSize = 26.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            // Edit Camera badge overlay
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary)
+                                    .align(Alignment.BottomEnd),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("📷", fontSize = 11.sp)
+                            }
                         }
 
                         Spacer(modifier = Modifier.width(16.dp))
