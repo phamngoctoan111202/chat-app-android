@@ -7,6 +7,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -916,13 +918,14 @@ fun ChatScreen(
 
     // Fullscreen Image Preview Dialog
     previewImageDialogUrl?.let { imageText ->
+        val realUri = if (imageText.contains("📷 Attached Image: ")) imageText.substringAfter("📷 Attached Image: ").trim() else imageText.trim()
         Dialog(onDismissRequest = { previewImageDialogUrl = null }) {
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(8.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -933,35 +936,28 @@ fun ChatScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Encrypted Image Attachment", fontWeight = FontWeight.Bold)
+                        Text("Media Attachment", fontWeight = FontWeight.Bold)
                         IconButton(onClick = { previewImageDialogUrl = null }) {
                             Icon(Icons.Default.Close, contentDescription = "Close")
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(200.dp)
+                            .heightIn(min = 200.dp, max = 450.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "📷",
-                                fontSize = 48.sp
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = imageText,
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        AsyncImage(
+                            model = realUri,
+                            contentDescription = "Preview Image",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
                 }
             }
@@ -1155,18 +1151,23 @@ fun MessageItemBubble(
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
                     if (isImage) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        ) {
-                            Text("📷", fontSize = 16.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Encrypted Media Attachment",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = textColor
-                            )
+                        val imageUrl = if (textContent.contains("📷 Attached Image: ")) textContent.substringAfter("📷 Attached Image: ").trim() else textContent.trim()
+                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 220.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(textColor.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                AsyncImage(
+                                    model = imageUrl,
+                                    contentDescription = "Attachment Thumbnail",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                         }
                     }
 

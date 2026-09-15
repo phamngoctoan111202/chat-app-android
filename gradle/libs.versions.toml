@@ -19,7 +19,10 @@ retrofitKotlinxSerializationJson = "1.0.0"
 firebaseBom = "32.8.0"
 googleServicesPlugin = "4.4.1"
 
+coil = "2.6.0"
+
 [libraries]
+coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
