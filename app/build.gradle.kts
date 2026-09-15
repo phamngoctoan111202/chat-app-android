@@ -70,6 +70,8 @@ dependencies {
   // Arch Components
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
+  implementation(libs.androidx.room.runtime)
+  implementation(libs.androidx.room.ktx)
 
   // Compose
   implementation(libs.androidx.compose.ui)

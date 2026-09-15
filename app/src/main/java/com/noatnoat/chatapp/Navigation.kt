@@ -51,6 +51,14 @@ fun MainNavigation() {
         }
     }
 
+    androidx.compose.runtime.LaunchedEffect(currentScreen) {
+        when (val screen = currentScreen) {
+            is Screen.ConversationList -> conversationViewModel.loadConversations(context)
+            is Screen.Chat -> chatViewModel.loadConversation(context, screen.peerUserId)
+            else -> {}
+        }
+    }
+
     when (authState) {
         is AuthUiState.Authenticated -> {
             when (currentScreen) {

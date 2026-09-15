@@ -12,6 +12,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+import android.content.Context
+import com.noatnoat.chatapp.core.database.ChatDatabase
+import com.noatnoat.chatapp.data.DatabaseProvider
+
 data class ConversationUiState(
     val conversations: List<ConversationEntity> = emptyList(),
     val connectionState: WsState = WsState.Disconnected,
@@ -26,9 +30,11 @@ class ConversationViewModel(
     private val _uiState = MutableStateFlow(ConversationUiState())
     val uiState: StateFlow<ConversationUiState> = _uiState.asStateFlow()
 
+    private var db: ChatDatabase? = null
+
     init {
         val userId = sessionManager.getUserId() ?: "my_user_id"
-        _uiState.value = _uiState.value.copy(currentUserId = userId, conversations = emptyList())
+        _uiState.value = _uiState.value.copy(currentUserId = userId)
 
         // Connect to WebSocket Gateway
         wsManager.connect(userId)
@@ -49,23 +55,32 @@ class ConversationViewModel(
         }
     }
 
+    fun loadConversations(context: Context) {
+        val database = DatabaseProvider.getDatabase(context)
+        db = database
+        viewModelScope.launch {
+            database.conversationDao().getAllConversations().collect { convList ->
+                _uiState.value = _uiState.value.copy(conversations = convList)
+            }
+        }
+    }
+
     fun startNewConversation(peerPhoneNumber: String) {
         if (peerPhoneNumber.isBlank()) return
         val peerId = "user_" + peerPhoneNumber.takeLast(6)
         val convId = "conv_$peerId"
 
-        val existing = _uiState.value.conversations.find { it.conversationId == convId }
-        if (existing == null) {
-            val newConv = ConversationEntity(
-                conversationId = convId,
-                peerUserId = peerId,
-                peerPhoneNumber = peerPhoneNumber,
-                lastMessageText = "Conversation started",
-                lastTimestamp = System.currentTimeMillis(),
-                unreadCount = 0
-            )
-            val updated = listOf(newConv) + _uiState.value.conversations
-            _uiState.value = _uiState.value.copy(conversations = updated)
+        val newConv = ConversationEntity(
+            conversationId = convId,
+            peerUserId = peerId,
+            peerPhoneNumber = peerPhoneNumber,
+            lastMessageText = "Conversation started",
+            lastTimestamp = System.currentTimeMillis(),
+            unreadCount = 0
+        )
+
+        viewModelScope.launch {
+            db?.conversationDao()?.upsertConversation(newConv)
         }
     }
 

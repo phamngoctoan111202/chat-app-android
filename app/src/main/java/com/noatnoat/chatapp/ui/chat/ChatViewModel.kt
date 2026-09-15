@@ -18,6 +18,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+import com.noatnoat.chatapp.core.database.ChatDatabase
+import com.noatnoat.chatapp.core.database.entity.ConversationEntity
+import com.noatnoat.chatapp.data.DatabaseProvider
+
 data class CallState(
     val isCallActive: Boolean = false,
     val isVideo: Boolean = false,
@@ -47,11 +51,21 @@ class ChatViewModel(
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
+    private var db: ChatDatabase? = null
     private var sharedSecret: ByteArray? = null
     private var webRtcEngine: WebRtcEngineManager? = null
 
-    init {
-        _uiState.value = _uiState.value.copy(messages = emptyList())
+    fun loadConversation(context: Context, peerUserId: String) {
+        val database = DatabaseProvider.getDatabase(context)
+        db = database
+        _uiState.value = _uiState.value.copy(peerUserId = peerUserId)
+        val convId = "conv_$peerUserId"
+
+        viewModelScope.launch {
+            database.messageDao().getMessagesForConversation(convId).collect { msgList ->
+                _uiState.value = _uiState.value.copy(messages = msgList)
+            }
+        }
     }
 
     fun sendMessage(plainText: String) {
@@ -103,9 +117,10 @@ class ChatViewModel(
             val timestamp = if (sendRes is NetworkResponse.Success) sendRes.data.timestamp else System.currentTimeMillis()
             val msgId = if (sendRes is NetworkResponse.Success) sendRes.data.messageId else UUID.randomUUID().toString()
 
+            val convId = "conv_$peerUserId"
             val newMsg = MessageEntity(
                 messageId = msgId,
-                conversationId = "conv_demo",
+                conversationId = convId,
                 senderId = currentUserId,
                 recipientId = peerUserId,
                 ciphertext = encryptedPayload.ciphertext,
@@ -115,11 +130,19 @@ class ChatViewModel(
                 status = if (sendRes is NetworkResponse.Success) "SENT" else "PENDING"
             )
 
-            val updatedList = _uiState.value.messages + newMsg
-            _uiState.value = _uiState.value.copy(
-                messages = updatedList,
-                isSending = false
+            db?.messageDao()?.insertMessage(newMsg)
+            db?.conversationDao()?.upsertConversation(
+                ConversationEntity(
+                    conversationId = convId,
+                    peerUserId = peerUserId,
+                    peerPhoneNumber = peerUserId,
+                    lastMessageText = plainText,
+                    lastTimestamp = timestamp,
+                    unreadCount = 0
+                )
             )
+
+            _uiState.value = _uiState.value.copy(isSending = false)
         }
     }
 

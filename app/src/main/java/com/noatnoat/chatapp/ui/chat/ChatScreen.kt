@@ -69,7 +69,6 @@ import com.noatnoat.chatapp.core.ads.BannerAdView
 import com.noatnoat.chatapp.core.database.entity.MessageEntity
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
