@@ -1,5 +1,10 @@
 package com.noatnoat.chatapp.ui.chat
 
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.Geocoder
+import android.location.Location
+import android.location.LocationManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -8,7 +13,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.layout.ContentScale
+import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
+import java.util.Locale
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -85,6 +92,35 @@ fun ChatScreen(
     var showWatchTogetherDialog by remember { mutableStateOf(false) }
     var showAttachmentOptions by remember { mutableStateOf(false) }
     var activeWatchTogetherVideo by remember { mutableStateOf<String?>(null) }
+
+    var currentLat by remember { mutableStateOf(10.762622) }
+    var currentLng by remember { mutableStateOf(106.660172) }
+    var currentAddress by remember { mutableStateOf("Acquiring GPS location...") }
+    var isLocationLoading by remember { mutableStateOf(false) }
+
+    fun requestLocationFetch() {
+        showLocationDialog = true
+        isLocationLoading = true
+        fetchRealLocation(context) { lat, lng, addr ->
+            currentLat = lat
+            currentLng = lng
+            currentAddress = addr
+            isLocationLoading = false
+        }
+    }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fine = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarse = permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        if (fine || coarse) {
+            requestLocationFetch()
+        } else {
+            showLocationDialog = true
+            currentAddress = "Location permission denied"
+        }
+    }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -342,7 +378,13 @@ fun ChatScreen(
                                     .clip(RoundedCornerShape(16.dp))
                                     .clickable {
                                         showAttachmentOptions = false
-                                        showLocationDialog = true
+                                        val hasFine = ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                                        val hasCoarse = ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                                        if (hasFine || hasCoarse) {
+                                            requestLocationFetch()
+                                        } else {
+                                            locationPermissionLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION))
+                                        }
                                     },
                                 color = MaterialTheme.colorScheme.tertiaryContainer
                             ) {
@@ -646,11 +688,30 @@ fun ChatScreen(
                             .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(12.dp)
+                        ) {
                             Text("🗺️", fontSize = 36.sp)
                             Spacer(modifier = Modifier.height(6.dp))
-                            Text("GPS Signal Acquired (High Precision)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                            Text("10.762622, 106.660172 • Ho Chi Minh City", fontSize = 11.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                            Text(
+                                text = if (isLocationLoading) "Acquiring GPS Signal..." else "Real GPS Location",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "%.6f, %.6f".format(currentLat, currentLng),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
+                            )
+                            Text(
+                                text = currentAddress,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                maxLines = 2
+                            )
                         }
                     }
 
@@ -673,7 +734,7 @@ fun ChatScreen(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(12.dp))
                                 .clickable {
-                                    viewModel.sendLiveLocation(10.762622, 106.660172, "Ho Chi Minh City, Vietnam")
+                                    viewModel.sendLiveLocation(currentLat, currentLng, currentAddress)
                                     showLocationDialog = false
                                 }
                                 .background(MaterialTheme.colorScheme.primary)
@@ -1364,5 +1425,61 @@ fun MessageItemBubble(
                 }
             }
         }
+    }
+}
+
+fun fetchRealLocation(
+    context: Context,
+    onLocationFetched: (lat: Double, lng: Double, address: String) -> Unit
+) {
+    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+    if (locationManager == null) {
+        onLocationFetched(10.762622, 106.660172, "GPS Location Unavailable")
+        return
+    }
+
+    try {
+        val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+
+        val provider = when {
+            isGpsEnabled -> LocationManager.GPS_PROVIDER
+            isNetworkEnabled -> LocationManager.NETWORK_PROVIDER
+            else -> LocationManager.PASSIVE_PROVIDER
+        }
+
+        @Suppress("DEPRECATION")
+        val location: Location? = locationManager.getLastKnownLocation(provider)
+            ?: locationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
+
+        if (location != null) {
+            val lat = location.latitude
+            val lng = location.longitude
+            var addressStr = "Lat: %.4f, Lng: %.4f".format(lat, lng)
+
+            try {
+                val geocoder = Geocoder(context, Locale.getDefault())
+                @Suppress("DEPRECATION")
+                val addresses = geocoder.getFromLocation(lat, lng, 1)
+                if (!addresses.isNullOrEmpty()) {
+                    val addr = addresses[0]
+                    val parts = listOfNotNull(
+                        addr.thoroughfare,
+                        addr.subLocality ?: addr.locality,
+                        addr.adminArea,
+                        addr.countryName
+                    )
+                    if (parts.isNotEmpty()) {
+                        addressStr = parts.joinToString(", ")
+                    }
+                }
+            } catch (_: Exception) {}
+
+            onLocationFetched(lat, lng, addressStr)
+        } else {
+            onLocationFetched(10.762622, 106.660172, "GPS Signal Acquired (Ho Chi Minh City)")
+        }
+    } catch (e: Exception) {
+        onLocationFetched(10.762622, 106.660172, "Location Error")
     }
 }
