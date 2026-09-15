@@ -1311,9 +1311,29 @@ fun MessageItemBubble(
                     ) {
                         Text(
                             text = timeFormat.format(Date(message.timestamp)),
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
                             color = textColor.copy(alpha = 0.7f)
                         )
+                        if (isOutbound) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            val (statusIcon, statusLabel) = when (message.status.uppercase()) {
+                                "SENDING" -> "⏱" to "Sending"
+                                "SENT" -> "✓" to "Sent"
+                                "DELIVERED" -> "✓✓" to "Delivered"
+                                "SEEN", "READ" -> "✓✓" to "Seen"
+                                else -> "✓✓" to "Delivered"
+                            }
+                            Text(
+                                text = "$statusIcon $statusLabel",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (message.status.uppercase() in listOf("SEEN", "READ")) {
+                                    MaterialTheme.colorScheme.onPrimary
+                                } else {
+                                    textColor.copy(alpha = 0.85f)
+                                }
+                            )
+                        }
                     }
                 }
             }
