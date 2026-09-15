@@ -90,7 +90,10 @@ fun ChatScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            viewModel.sendMessage("📷 Attached Image: ${uri.lastPathSegment}")
+            try {
+                context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: Exception) {}
+            viewModel.sendMessage("📷 Attached Image: $uri")
         }
     }
 
@@ -955,7 +958,10 @@ fun ChatScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         AsyncImage(
-                            model = realUri,
+                            model = coil.request.ImageRequest.Builder(LocalContext.current)
+                                .data(if (realUri.startsWith("content://") || realUri.startsWith("file://") || realUri.startsWith("http")) Uri.parse(realUri) else realUri)
+                                .crossfade(true)
+                                .build(),
                             contentDescription = "Preview Image",
                             contentScale = ContentScale.Fit,
                             modifier = Modifier.fillMaxSize()
@@ -1164,7 +1170,10 @@ fun MessageItemBubble(
                                 contentAlignment = Alignment.Center
                             ) {
                                 AsyncImage(
-                                    model = imageUrl,
+                                    model = coil.request.ImageRequest.Builder(LocalContext.current)
+                                        .data(if (imageUrl.startsWith("content://") || imageUrl.startsWith("file://") || imageUrl.startsWith("http")) Uri.parse(imageUrl) else imageUrl)
+                                        .crossfade(true)
+                                        .build(),
                                     contentDescription = "Attachment Thumbnail",
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxWidth()
