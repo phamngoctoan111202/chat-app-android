@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -82,6 +83,7 @@ fun ChatScreen(
     var showEphemeralDialog by remember { mutableStateOf(false) }
     var showLocationDialog by remember { mutableStateOf(false) }
     var showWatchTogetherDialog by remember { mutableStateOf(false) }
+    var showAttachmentOptions by remember { mutableStateOf(false) }
     var activeWatchTogetherVideo by remember { mutableStateOf<String?>(null) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
