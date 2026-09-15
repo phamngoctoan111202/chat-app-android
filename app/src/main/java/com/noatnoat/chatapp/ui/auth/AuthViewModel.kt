@@ -77,8 +77,69 @@ class AuthViewModel(
                 }
                 is FirebasePhoneAuthResult.Error -> {
                     AppLogger.e(TAG, "Firebase Phone Auth Error: ${result.message}")
-                    _uiState.value = AuthUiState.Error("Firebase Phone Auth Error: ${result.message}")
+                    _uiState.value = AuthUiState.Error(parseFirebaseErrorMessage(result.message))
                 }
+            }
+        }
+    }
+
+    private fun parseFirebaseErrorMessage(rawMsg: String): String {
+        return when {
+            rawMsg.contains("17020") || rawMsg.contains("googleapis") || rawMsg.contains("resolve host") || rawMsg.contains("No address associated") -> {
+                "⚠️ Network/DNS Connection Error (Code 17020): Unable to reach www.googleapis.com.\n\n" +
+                "Causes:\n" +
+                "• Android Emulator has no internet or DNS resolution failed.\n" +
+                "• Wi-Fi / Mobile data is disconnected.\n\n" +
+                "👉 Tap 'Fast Dev Login' below to bypass SMS verification for local testing."
+            }
+            rawMsg.contains("17010") || rawMsg.contains("quota") -> {
+                "⚠️ Firebase SMS Quota Exceeded (Code 17010).\n\n" +
+                "👉 Tap 'Fast Dev Login' below to bypass SMS verification."
+            }
+            else -> "Firebase Auth Error: $rawMsg"
+        }
+    }
+
+    fun devBypassLogin(phoneNumber: String = "+84901234567") {
+        val phone = if (phoneNumber.isNotBlank()) phoneNumber else "+84901234567"
+        val devUserId = "dev_user_" + phone.filter { it.isDigit() }.takeLast(6).ifEmpty { "123456" }
+
+        viewModelScope.launch {
+            AppLogger.i(TAG, "Executing Dev Bypass Login for phone: $phone, devUserId: $devUserId")
+            _uiState.value = AuthUiState.Loading
+
+            try {
+                val localBundle = CryptoManager.generateFullLocalKeyBundle()
+                keyStore.saveLocalKeyBundle(localBundle)
+
+                sessionManager.saveSession(
+                    userId = devUserId,
+                    phoneNumber = phone,
+                    accessToken = "dev_access_token_$devUserId",
+                    refreshToken = "dev_refresh_token_$devUserId"
+                )
+
+                val uploadReq = UploadKeysRequest(
+                    identityKey = localBundle.identityKeyPair.publicKey,
+                    signedPreKey = SignedPreKeyDto(
+                        keyId = localBundle.signedPreKey.keyId,
+                        publicKey = localBundle.signedPreKey.publicKey,
+                        signature = localBundle.signedPreKey.signature
+                    ),
+                    oneTimePreKeys = localBundle.oneTimePreKeys.map {
+                        PreKeyDto(keyId = it.keyId, publicKey = it.publicKey)
+                    }
+                )
+
+                NetworkClient.safeApiCall { apiService.uploadKeys(uploadReq) }
+
+                _uiState.value = AuthUiState.Authenticated(
+                    userId = devUserId,
+                    phoneNumber = phone
+                )
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "Dev Bypass Login error: ${e.message}", e)
+                _uiState.value = AuthUiState.Error("Dev Bypass Login Failed: ${e.localizedMessage}")
             }
         }
     }

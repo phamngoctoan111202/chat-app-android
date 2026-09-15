@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -27,6 +28,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -163,13 +165,51 @@ fun PhoneOtpScreen(
                                     Text("Send OTP Code (${selectedCountry.dialCode})", fontSize = 15.sp)
                                 }
 
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                OutlinedButton(
+                                    onClick = {
+                                        val fullNumber = formatE164PhoneNumber(selectedCountry.dialCode, rawPhoneNumber)
+                                        viewModel.devBypassLogin(fullNumber)
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("⚡ Fast Dev Login (Bypass SMS)", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                }
+
                                 if (state is AuthUiState.Error) {
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    Text(
-                                        text = state.message,
-                                        color = MaterialTheme.colorScheme.error,
-                                        fontSize = 14.sp
-                                    )
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Text(
+                                                text = state.message,
+                                                color = MaterialTheme.colorScheme.error,
+                                                fontSize = 13.sp,
+                                                lineHeight = 18.sp
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Button(
+                                                onClick = {
+                                                    val fullNumber = formatE164PhoneNumber(selectedCountry.dialCode, rawPhoneNumber)
+                                                    viewModel.devBypassLogin(fullNumber)
+                                                },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                shape = RoundedCornerShape(8.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = MaterialTheme.colorScheme.error
+                                                )
+                                            ) {
+                                                Text("🚀 Fast Dev Login (Bypass SMS)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
                                 }
                             }
 

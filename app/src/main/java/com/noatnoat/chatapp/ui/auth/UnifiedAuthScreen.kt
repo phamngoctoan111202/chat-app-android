@@ -326,7 +326,7 @@ fun UnifiedAuthScreen(
 
                                         Spacer(modifier = Modifier.height(16.dp))
 
-                                        Button(
+                                         Button(
                                             onClick = {
                                                 val fullNumber = formatE164PhoneNumber(selectedCountry.dialCode, rawPhoneNumber)
                                                 if (activity != null) {
@@ -339,6 +339,22 @@ fun UnifiedAuthScreen(
                                             shape = RoundedCornerShape(12.dp)
                                         ) {
                                             Text("Send SMS OTP Code (${selectedCountry.dialCode})", fontSize = 15.sp)
+                                        }
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        OutlinedButton(
+                                            onClick = {
+                                                val fullNumber = formatE164PhoneNumber(selectedCountry.dialCode, rawPhoneNumber)
+                                                viewModel.devBypassLogin(fullNumber)
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = MaterialTheme.colorScheme.primary
+                                            )
+                                        ) {
+                                            Text("⚡ Fast Dev Login (Bypass SMS)", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                                         }
                                     }
                                 } else {
@@ -420,11 +436,36 @@ fun UnifiedAuthScreen(
                                 // Error Message Display
                                 if (state is AuthUiState.Error) {
                                     Spacer(modifier = Modifier.height(12.dp))
-                                    Text(
-                                        text = state.message,
-                                        color = MaterialTheme.colorScheme.error,
-                                        fontSize = 13.sp
-                                    )
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Text(
+                                                text = state.message,
+                                                color = MaterialTheme.colorScheme.error,
+                                                fontSize = 13.sp,
+                                                lineHeight = 18.sp
+                                            )
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                            Button(
+                                                onClick = {
+                                                    val fullNumber = formatE164PhoneNumber(selectedCountry.dialCode, rawPhoneNumber)
+                                                    viewModel.devBypassLogin(fullNumber)
+                                                },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                shape = RoundedCornerShape(8.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = MaterialTheme.colorScheme.error
+                                                )
+                                            ) {
+                                                Text("🚀 Fast Dev Login (Bypass SMS)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
