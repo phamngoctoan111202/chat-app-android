@@ -124,24 +124,42 @@ fun ConversationListScreen(
                 onNewChatClick = { isSearchDialogOpen = true }
             )
             
-            // 2. ERROR BANNER (Nếu mất kết nối)
-            if (uiState.connectionState is WsState.Disconnected || uiState.connectionState is WsState.Error) {
-
-                AppLogger.d(TAG, "Trạng thái hiện tại: ${uiState.connectionState}")
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFFFF0F0))
-                        .padding(vertical = 4.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Không có kết nối Internet",
-                        color = Color(0xFFE31C23),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+            // 2. CONNECTION STATUS BANNER
+            when (val state = uiState.connectionState) {
+                is WsState.Connecting -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFFFFBE6))
+                            .padding(vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Đang kết nối máy chủ...",
+                            color = Color(0xFFD48806),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
+                is WsState.Error -> {
+                    AppLogger.d(TAG, "Trạng thái lỗi WebSocket: ${state.throwable.message}")
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFFFF0F0))
+                            .padding(vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Mất kết nối máy chủ - Đang tự động kết nối lại...",
+                            color = Color(0xFFE31C23),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+                else -> {}
             }
             
             when (selectedTab) {
