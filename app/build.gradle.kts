@@ -61,6 +61,7 @@ dependencies {
   val firebaseBom = platform(libs.firebase.bom)
   implementation(firebaseBom)
   implementation(libs.firebase.auth.ktx)
+  implementation(libs.firebase.messaging.ktx)
 
   // Core Android dependencies
   implementation(libs.androidx.core.ktx)
@@ -78,6 +79,10 @@ dependencies {
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.compose.material3)
   implementation(libs.coil.compose)
+
+  // Google Maps SDK
+  implementation(libs.maps.compose)
+  implementation(libs.play.services.maps)
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)
   // Instrumented tests

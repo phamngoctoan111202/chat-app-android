@@ -2,7 +2,7 @@ package com.noatnoat.chatapp.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Messenger Blue Theme Palette (Light & Dark Mode Tokens)
+
 val BluePrimary = Color(0xFF0084FF)
 val BluePrimaryDark = Color(0xFF0066FF)
 val BluePrimaryContainerLight = Color(0xFFE7F3FF)

@@ -1,6 +1,8 @@
 package com.noatnoat.chatapp.ui.conversation
 
+import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,50 +16,61 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.noatnoat.chatapp.core.ads.BannerAdView
 import com.noatnoat.chatapp.core.database.entity.ConversationEntity
 import com.noatnoat.chatapp.core.network.websocket.WsState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.Calendar
 
-import coil.compose.AsyncImage
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.noatnoat.chatapp.core.network.logging.AppLogger
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConversationListScreen(
     viewModel: ConversationViewModel,
@@ -65,179 +78,432 @@ fun ConversationListScreen(
     onSettingsClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var showNewChatDialog by remember { mutableStateOf(false) }
-    var newPhoneInput by remember { mutableStateOf("") }
+    var searchInput by remember { mutableStateOf("") }
+    var selectedTab by remember { mutableIntStateOf(0) }
+    var isSearchDialogOpen by remember { mutableStateOf(false) }
+    
+    val totalUnread = uiState.conversations.sumOf { it.unreadCount }
+
+    val TAG = "ConversationListScreen"
+    if (isSearchDialogOpen) {
+        UserSearchDialog(
+            viewModel = viewModel,
+            onDismiss = { isSearchDialogOpen = false },
+            onUserSelected = { peerId ->
+                isSearchDialogOpen = false
+                viewModel.startNewConversation(peerId)
+                onConversationClick(peerId)
+            }
+        )
+    }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "Chats",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        val connText = when (uiState.connectionState) {
-                            is WsState.Connected -> "🟢 Online"
-                            is WsState.Connecting -> "🟡 Connecting..."
-                            else -> "🔴 Offline"
-                        }
-                        Text(
-                            text = connText,
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+        bottomBar = {
+            HomeBottomNavigation(
+                totalUnread = totalUnread,
+                selectedTab = selectedTab,
+                onTabSelected = { tab ->
+                    if (tab == 3) {
+                        onSettingsClick()
+                    } else {
+                        selectedTab = tab
                     }
-                },
-                navigationIcon = {
-                    // Signal Style Profile Avatar Button (Opens Settings)
-                    IconButton(
-                        onClick = onSettingsClick,
-                        modifier = Modifier.padding(start = 4.dp)
-                    ) {
-                        val initial = uiState.currentUserId.takeLast(1).ifBlank { "U" }
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = initial,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showNewChatDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = CircleShape
-            ) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = "New Chat")
-            }
         }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
+                .background(Color.White)
         ) {
-            BannerAdView()
+            // 1. HEADER (Đã bỏ chữ "Đoạn chat")
+            HomeHeader(
+                onSettingsClick = onSettingsClick,
+                onNewChatClick = { isSearchDialogOpen = true }
+            )
+            
+            // 2. ERROR BANNER (Nếu mất kết nối)
+            if (uiState.connectionState is WsState.Disconnected || uiState.connectionState is WsState.Error) {
 
-            if (uiState.conversations.isEmpty()) {
+                AppLogger.d(TAG, "Trạng thái hiện tại: ${uiState.connectionState}")
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFFFF0F0))
+                        .padding(vertical = 4.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No active conversations.\nTap + to start a new chat!",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 14.sp
+                        text = "Không có kết nối Internet",
+                        color = Color(0xFFE31C23),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize()
+            }
+            
+            when (selectedTab) {
+                0 -> {
+                    // 3. SEARCH BAR (Nhấp vào mở Dialog tìm kiếm)
+                    HomeSearchBar(
+                        query = searchInput,
+                        onClick = { isSearchDialogOpen = true },
+                        onQueryChange = { searchInput = it },
+                        onSearch = { isSearchDialogOpen = true }
+                    )
+                    
+                    val filteredConversations = uiState.conversations.filter {
+                        searchInput.isBlank() || it.peerPhoneNumber.contains(searchInput, ignoreCase = true)
+                    }
+
+                    LazyColumn(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        // 5. CHAT LIST
+                        if (filteredConversations.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Chưa có đoạn chat nào.",
+                                        color = Color.Gray,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            }
+                        } else {
+                            items(filteredConversations) { conv ->
+                                ConversationItemRow(
+                                    conversation = conv,
+                                    onClick = { onConversationClick(conv.peerUserId) }
+                                )
+                            }
+                        }
+                    }
+                }
+                1 -> {
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text("Chưa có liên hệ nào.", color = Color.Gray, fontSize = 16.sp)
+                    }
+                }
+                2 -> {
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text("Không có thông báo mới.", color = Color.Gray, fontSize = 16.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HomeHeader(
+    onSettingsClick: () -> Unit,
+    onNewChatClick: () -> Unit = {}
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFF0F2F5))
+                    .clickable { onNewChatClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Tạo tin nhắn mới",
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.Black
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFF0F2F5))
+                    .clickable { onSettingsClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Menu,
+                    contentDescription = "Menu",
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.Black
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun HomeSearchBar(
+    query: String,
+    onClick: () -> Unit = {},
+    onQueryChange: (String) -> Unit = {},
+    onSearch: () -> Unit = {}
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .height(44.dp)
+            .clip(RoundedCornerShape(50)) // Pill shape
+            .background(Color(0xFFF0F2F5))
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Search",
+                tint = Color.Gray,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (query.isEmpty()) "Tìm kiếm" else query,
+                color = if (query.isEmpty()) Color.Gray else Color.Black,
+                fontSize = 15.sp
+            )
+        }
+    }
+}
+
+@Composable
+fun UserSearchDialog(
+    viewModel: ConversationViewModel,
+    onDismiss: () -> Unit,
+    onUserSelected: (peerUserId: String) -> Unit
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+        ) {
+            // SEARCH DIALOG HEADER & INPUT
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onDismiss) {
+                    Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Quay lại")
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color(0xFFF0F2F5))
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.CenterStart
                 ) {
-                    items(uiState.conversations) { conv ->
-                        ConversationItemRow(
-                            conversation = conv,
-                            onClick = { onConversationClick(conv.peerUserId) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { text ->
+                                searchQuery = text
+                                viewModel.searchUsers(text)
+                            },
+                            textStyle = TextStyle(fontSize = 15.sp, color = Color.Black),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Text,
+                                imeAction = ImeAction.Search
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onSearch = {
+                                    if (searchQuery.isNotBlank()) {
+                                        val peerId = if (searchQuery.startsWith("user_")) searchQuery else "user_" + searchQuery.takeLast(6)
+                                        onUserSelected(peerId)
+                                    }
+                                }
+                            ),
+                            modifier = Modifier.weight(1f),
+                            decorationBox = { innerTextField ->
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        text = "Tìm kiếm người nhắn tin mới...",
+                                        color = Color.Gray,
+                                        fontSize = 15.sp
+                                    )
+                                }
+                                innerTextField()
+                            }
                         )
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
-                            modifier = Modifier.padding(start = 76.dp)
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(
+                                onClick = {
+                                    searchQuery = ""
+                                    viewModel.searchUsers("")
+                                },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Close, contentDescription = "Xóa", tint = Color.Gray)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // DYNAMIC SEARCH RESULTS LIST
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
+            ) {
+                if (searchQuery.isNotBlank()) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val peerId = if (searchQuery.startsWith("user_")) searchQuery else "user_" + searchQuery.takeLast(6)
+                                    onUserSelected(peerId)
+                                }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF0080FF)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = Color.White)
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column {
+                                Text(
+                                    text = "Tạo cuộc trò chuyện với: $searchQuery",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
+                                Text(
+                                    text = "Bắt đầu nhắn tin E2EE mới",
+                                    color = Color.Gray,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
+                items(uiState.searchResults) { userResult ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onUserSelected(userResult.userId)
+                            }
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE4E6EB)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = userResult.username.take(1).uppercase(),
+                                fontWeight = FontWeight.Bold,
+                                color = Color.DarkGray,
+                                fontSize = 18.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = userResult.username,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 16.sp
+                            )
+                            if (userResult.phoneNumber.isNotBlank()) {
+                                Text(
+                                    text = userResult.phoneNumber,
+                                    color = Color.Gray,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Nhắn tin",
+                            color = Color(0xFF0080FF),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
                         )
                     }
                 }
             }
         }
     }
-
-    if (showNewChatDialog) {
-        AlertDialog(
-            onDismissRequest = { showNewChatDialog = false },
-            title = { Text("Start New Chat", fontWeight = FontWeight.Bold) },
-            text = {
-                OutlinedTextField(
-                    value = newPhoneInput,
-                    onValueChange = { newPhoneInput = it },
-                    label = { Text("Phone Number (+84...)") },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (newPhoneInput.isNotBlank()) {
-                            viewModel.startNewConversation(newPhoneInput)
-                            val peerId = "user_" + newPhoneInput.takeLast(6)
-                            showNewChatDialog = false
-                            newPhoneInput = ""
-                            onConversationClick(peerId)
-                        }
-                    },
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Start Chat")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showNewChatDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
 }
+
+
 
 @Composable
 fun ConversationItemRow(
     conversation: ConversationEntity,
     onClick: () -> Unit
 ) {
-    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    val isUnread = conversation.unreadCount > 0
+    val textColor = if (isUnread) Color.Black else Color.Gray
+    val fontWeight = if (isUnread) FontWeight.Bold else FontWeight.Normal
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         val initial = conversation.peerPhoneNumber.takeLast(1).ifBlank { "U" }
         Box(
             modifier = Modifier
-                .size(52.dp)
+                .size(54.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .background(Color(0xFFE4E6EB)),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = initial,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                text = initial.uppercase(),
+                color = Color.DarkGray,
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp
             )
         }
 
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(
             modifier = Modifier.weight(1f)
@@ -248,53 +514,152 @@ fun ConversationItemRow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = conversation.peerPhoneNumber,
-                    fontWeight = FontWeight.Bold,
+                    text = conversation.peerPhoneNumber, // Tạm lấy sđt làm tên
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = Color.Black
                 )
 
                 Text(
-                    text = timeFormat.format(Date(conversation.lastTimestamp)),
+                    text = formatHomeTime(conversation.lastTimestamp),
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Color.Gray,
+                    fontWeight = fontWeight
                 )
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = conversation.lastMessageText,
                     fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = textColor,
+                    fontWeight = fontWeight,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-
-                if (conversation.unreadCount > 0) {
+                
+                if (isUnread) {
+                    Spacer(modifier = Modifier.width(8.dp))
                     Box(
                         modifier = Modifier
-                            .padding(start = 8.dp)
+                            .size(10.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
-                            .padding(horizontal = 8.dp, vertical = 2.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = conversation.unreadCount.toString(),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                            .background(Color(0xFF0080FF))
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+fun HomeBottomNavigation(
+    totalUnread: Int,
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit
+) {
+    NavigationBar(
+        containerColor = Color.White,
+        tonalElevation = 8.dp
+    ) {
+        NavigationBarItem(
+            selected = selectedTab == 0,
+            onClick = { onTabSelected(0) },
+            icon = {
+                BadgedBox(
+                    badge = { 
+                        if (totalUnread > 0) {
+                            Badge { Text(totalUnread.toString()) } 
+                        }
+                    }
+                ) {
+                    Icon(imageVector = Icons.Default.Email, contentDescription = "Chats")
+                }
+            },
+            label = { Text("Đoạn chat") },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = Color(0xFF0080FF),
+                selectedTextColor = Color(0xFF0080FF),
+                indicatorColor = Color.Transparent,
+                unselectedIconColor = Color.Gray,
+                unselectedTextColor = Color.Gray
+            )
+        )
+        NavigationBarItem(
+            selected = selectedTab == 1,
+            onClick = { onTabSelected(1) },
+            icon = { Icon(imageVector = Icons.Default.Person, contentDescription = "People") },
+            label = { Text("Mọi người") },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = Color(0xFF0080FF),
+                indicatorColor = Color.Transparent,
+                unselectedIconColor = Color.Gray,
+                unselectedTextColor = Color.Gray
+            )
+        )
+        NavigationBarItem(
+            selected = selectedTab == 2,
+            onClick = { onTabSelected(2) },
+            icon = {
+                BadgedBox(
+                    badge = { Badge { Text("") } }
+                ) {
+                    Icon(imageVector = Icons.Default.Notifications, contentDescription = "Notifications")
+                }
+            },
+            label = { Text("Thông báo") },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = Color(0xFF0080FF),
+                indicatorColor = Color.Transparent,
+                unselectedIconColor = Color.Gray,
+                unselectedTextColor = Color.Gray
+            )
+        )
+        NavigationBarItem(
+            selected = selectedTab == 3,
+            onClick = { onTabSelected(3) },
+            icon = { Icon(imageVector = Icons.Default.Menu, contentDescription = "Menu") },
+            label = { Text("Menu") },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = Color(0xFF0080FF),
+                indicatorColor = Color.Transparent,
+                unselectedIconColor = Color.Gray,
+                unselectedTextColor = Color.Gray
+            )
+        )
+    }
+}
+
+
+fun formatHomeTime(timestamp: Long): String {
+    if (timestamp == 0L) return ""
+    val now = Calendar.getInstance()
+    val timeToCheck = Calendar.getInstance().apply { timeInMillis = timestamp }
+
+    val daysDiff = (now.timeInMillis - timeToCheck.timeInMillis) / (1000 * 60 * 60 * 24)
+
+    return if (now.get(Calendar.YEAR) == timeToCheck.get(Calendar.YEAR) &&
+        now.get(Calendar.DAY_OF_YEAR) == timeToCheck.get(Calendar.DAY_OF_YEAR)) {
+        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
+    } else if (daysDiff < 7) {
+        val dayOfWeek = timeToCheck.get(Calendar.DAY_OF_WEEK)
+        when (dayOfWeek) {
+            Calendar.SUNDAY -> "CN"
+            Calendar.MONDAY -> "T2"
+            Calendar.TUESDAY -> "T3"
+            Calendar.WEDNESDAY -> "T4"
+            Calendar.THURSDAY -> "T5"
+            Calendar.FRIDAY -> "T6"
+            Calendar.SATURDAY -> "T7"
+            else -> ""
+        }
+    } else {
+        SimpleDateFormat("d/M", Locale.getDefault()).format(Date(timestamp))
     }
 }

@@ -87,4 +87,27 @@ interface ChatApiService {
     suspend fun createPoll(
         @Body request: com.noatnoat.chatapp.core.network.dto.CreatePollRequest
     ): Response<Unit>
+
+    @GET("api/v1/users/search")
+    suspend fun searchUsers(
+        @retrofit2.http.Query("q") query: String
+    ): Response<List<com.noatnoat.chatapp.core.network.dto.UserSearchResultDto>>
+
+    @POST("api/v1/push/token")
+    suspend fun registerPushToken(
+        @Body request: com.noatnoat.chatapp.core.network.dto.RegisterPushTokenRequest
+    ): Response<Unit>
+
+    @POST("api/v1/users/block")
+    suspend fun blockUser(
+        @Body request: com.noatnoat.chatapp.core.network.dto.BlockUserRequest
+    ): Response<Unit>
+
+    @retrofit2.http.DELETE("api/v1/users/block/{userId}")
+    suspend fun unblockUser(
+        @Path("userId") userId: String
+    ): Response<Unit>
+
+    @GET("api/v1/users/blocked")
+    suspend fun getBlockedUsers(): Response<List<String>>
 }

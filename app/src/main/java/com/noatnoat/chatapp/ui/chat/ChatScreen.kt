@@ -70,6 +70,20 @@ import com.noatnoat.chatapp.core.database.entity.MessageEntity
 import java.text.SimpleDateFormat
 import java.util.Date
 
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.graphics.Color
+
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.rememberCameraPositionState
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
@@ -90,6 +104,7 @@ fun ChatScreen(
     var showLocationDialog by remember { mutableStateOf(false) }
     var showWatchTogetherDialog by remember { mutableStateOf(false) }
     var showAttachmentOptions by remember { mutableStateOf(false) }
+    var showProfileDialog by remember { mutableStateOf(false) }
     var activeWatchTogetherVideo by remember { mutableStateOf<String?>(null) }
 
     var currentLat by remember { mutableStateOf(10.762622) }
@@ -136,7 +151,10 @@ fun ChatScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.clickable { showProfileDialog = true },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         val initial = uiState.peerUserId.takeLast(1).ifBlank { "U" }
                         Box {
                             Box(
@@ -153,7 +171,7 @@ fun ChatScreen(
                                     fontSize = 17.sp
                                 )
                             }
-                            // Messenger Online Status Green Dot
+                            // Online Status Green/Red Dot
                             Box(
                                 modifier = Modifier
                                     .size(11.dp)
@@ -161,7 +179,7 @@ fun ChatScreen(
                                     .background(MaterialTheme.colorScheme.background)
                                     .padding(2.dp)
                                     .clip(CircleShape)
-                                    .background(com.noatnoat.chatapp.theme.OnlineGreen)
+                                    .background(if (uiState.isBlocked) Color.Red else com.noatnoat.chatapp.theme.OnlineGreen)
                                     .align(Alignment.BottomEnd)
                             )
                         }
@@ -170,15 +188,15 @@ fun ChatScreen(
 
                         Column {
                             Text(
-                                text = uiState.peerUserId,
+                                text = uiState.nickname ?: uiState.peerUserId,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = if (uiState.ephemeralTimerSeconds > 0) "⏱️ Disappearing ${uiState.ephemeralTimerSeconds}s" else "Active now • Encrypted",
+                                text = if (uiState.isBlocked) "🔴 Đã chặn" else if (uiState.isMuted) "🔕 Đã tắt thông báo" else if (uiState.ephemeralTimerSeconds > 0) "⏱️ Disappearing ${uiState.ephemeralTimerSeconds}s" else "Active now • Encrypted",
                                 fontSize = 11.sp,
-                                color = if (uiState.ephemeralTimerSeconds > 0) MaterialTheme.colorScheme.primary else com.noatnoat.chatapp.theme.OnlineGreen,
+                                color = if (uiState.isBlocked) Color.Red else if (uiState.isMuted) Color.Gray else if (uiState.ephemeralTimerSeconds > 0) MaterialTheme.colorScheme.primary else com.noatnoat.chatapp.theme.OnlineGreen,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -236,6 +254,52 @@ fun ChatScreen(
                 .padding(innerPadding)
                 .background(MaterialTheme.colorScheme.background)
         ) {
+            if (showProfileDialog) {
+                PeerProfileScreen(
+                    peerUserId = uiState.peerUserId,
+                    nickname = uiState.nickname,
+                    isMuted = uiState.isMuted,
+                    isBlocked = uiState.isBlocked,
+                    ephemeralTimerSeconds = uiState.ephemeralTimerSeconds,
+                    onBackClick = { showProfileDialog = false },
+                    onStartVoiceCall = {
+                        showProfileDialog = false
+                        viewModel.startCall(context, isVideo = false)
+                    },
+                    onStartVideoCall = {
+                        showProfileDialog = false
+                        viewModel.startCall(context, isVideo = true)
+                    },
+                    onShareLocation = {
+                        showProfileDialog = false
+                        requestLocationFetch()
+                    },
+                    onOpenWatchTogether = {
+                        showProfileDialog = false
+                        showWatchTogetherDialog = true
+                    },
+                    onOpenCreatePoll = {
+                        showProfileDialog = false
+                        showCreatePollDialog = true
+                    },
+                    onOpenEphemeralSettings = {
+                        showProfileDialog = false
+                        showEphemeralDialog = true
+                    },
+                    onBlockToggle = {
+                        if (uiState.isBlocked) {
+                            viewModel.unblockUser(uiState.peerUserId)
+                        } else {
+                            viewModel.blockUser(uiState.peerUserId)
+                        }
+                    },
+                    onMuteToggle = { viewModel.toggleMuteNotification() },
+                    onClearChat = { viewModel.clearChatHistory() },
+                    onReportUser = { reason -> viewModel.reportUser(reason) },
+                    onSetNickname = { nick -> viewModel.setNickname(nick) }
+                )
+            }
+
             BannerAdView()
 
             // Pinned Message Header Banner
@@ -302,7 +366,17 @@ fun ChatScreen(
                         onImageClick = { url -> previewImageDialogUrl = url },
                         onLongClick = { activeReactionMessage = msg },
                         onVoteOption = { optIdx -> viewModel.votePoll(msg.messageId, optIdx) },
-                        onWatchTogetherClick = { text -> activeWatchTogetherVideo = text.substringAfter("🎬 WATCH_TOGETHER: ") }
+                        onWatchTogetherClick = { text -> activeWatchTogetherVideo = text.substringAfter("🎬 WATCH_TOGETHER: ") },
+                        onLocationClick = { text ->
+                            val locPayload = text.substringAfter("📍 LOCATION: ")
+                            val coordsStr = locPayload.substringBefore(" | ")
+                            val parts = coordsStr.split(",")
+                            val lat = parts.getOrNull(0)?.toDoubleOrNull() ?: 10.762622
+                            val lng = parts.getOrNull(1)?.toDoubleOrNull() ?: 106.660172
+                            val uriStr = "https://www.google.com/maps/dir/?api=1&origin=$currentLat,$currentLng&destination=$lat,$lng"
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(uriStr))
+                            context.startActivity(intent)
+                        }
                     )
                 }
             }
@@ -1166,7 +1240,8 @@ fun MessageItemBubble(
     onImageClick: (String) -> Unit = {},
     onLongClick: () -> Unit = {},
     onVoteOption: (Int) -> Unit = {},
-    onWatchTogetherClick: (String) -> Unit = {}
+    onWatchTogetherClick: (String) -> Unit = {},
+    onLocationClick: (String) -> Unit = {}
 ) {
     val isOutbound = message.isOutbound
     val alignment = if (isOutbound) Alignment.CenterEnd else Alignment.CenterStart
@@ -1211,6 +1286,7 @@ fun MessageItemBubble(
                         onClick = {
                             if (isImage) onImageClick(textContent)
                             else if (isWatchTogether) onWatchTogetherClick(textContent)
+                            else if (isLocation) onLocationClick(textContent)
                         },
                         onLongClick = onLongClick
                     )
@@ -1263,19 +1339,54 @@ fun MessageItemBubble(
                         }
                     } else if (isLocation) {
                         val locPayload = textContent.substringAfter("📍 LOCATION: ")
-                        val coords = locPayload.substringBefore(" | ")
+                        val coordsStr = locPayload.substringBefore(" | ")
                         val address = locPayload.substringAfter(" | ")
-                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                        val parts = coordsStr.split(",")
+                        val senderLat = parts.getOrNull(0)?.toDoubleOrNull() ?: 10.762622
+                        val senderLng = parts.getOrNull(1)?.toDoubleOrNull() ?: 106.660172
+                        val recipientLat = 10.776889
+                        val recipientLng = 106.700806
+
+                        val senderLatLng = remember(senderLat, senderLng) { LatLng(senderLat, senderLng) }
+                        val recipientLatLng = remember(recipientLat, recipientLng) { LatLng(recipientLat, recipientLng) }
+
+                        val distanceString = remember(senderLat, senderLng, recipientLat, recipientLng) {
+                            val results = FloatArray(1)
+                            android.location.Location.distanceBetween(
+                                senderLat, senderLng, recipientLat, recipientLng, results
+                            )
+                            val meters = results[0]
+                            if (meters >= 1000) {
+                                String.format(Locale.getDefault(), "%.2f km", meters / 1000f)
+                            } else {
+                                "${meters.toInt()} m"
+                            }
+                        }
+
+                        val cameraPositionState = rememberCameraPositionState {
+                            val centerLat = (senderLat + recipientLat) / 2.0
+                            val centerLng = (senderLng + recipientLng) / 2.0
+                            position = CameraPosition.fromLatLngZoom(LatLng(centerLat, centerLng), 12f)
+                        }
+
+                        Column(modifier = Modifier.width(260.dp).padding(vertical = 4.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("📍", fontSize = 18.sp)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Live Location Shared",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = textColor
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Vị trí GPS chia sẻ",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = textColor
+                                    )
+                                    Text(
+                                        text = address,
+                                        fontSize = 11.sp,
+                                        color = textColor.copy(alpha = 0.85f),
+                                        maxLines = 1
+                                    )
+                                }
                                 Surface(
                                     color = com.noatnoat.chatapp.theme.OnlineGreen,
                                     shape = RoundedCornerShape(8.dp)
@@ -1289,9 +1400,67 @@ fun MessageItemBubble(
                                     )
                                 }
                             }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            // EMBEDDED GOOGLE MAP CARD INSIDE CHAT BUBBLE
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(140.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color.LightGray)
+                            ) {
+                                GoogleMap(
+                                    modifier = Modifier.fillMaxWidth().height(140.dp),
+                                    cameraPositionState = cameraPositionState,
+                                    uiSettings = MapUiSettings(
+                                        zoomControlsEnabled = false,
+                                        scrollGesturesEnabled = false,
+                                        zoomGesturesEnabled = false,
+                                        rotationGesturesEnabled = false,
+                                        tiltGesturesEnabled = false
+                                    )
+                                ) {
+                                    Marker(
+                                        state = MarkerState(position = senderLatLng),
+                                        title = "Vị trí người gửi"
+                                    )
+                                    Marker(
+                                        state = MarkerState(position = recipientLatLng),
+                                        title = "Vị trí của bạn"
+                                    )
+                                    Polyline(
+                                        points = listOf(senderLatLng, recipientLatLng),
+                                        color = Color(0xFF2196F3),
+                                        width = 8f
+                                    )
+                                }
+
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(6.dp)
+                                ) {
+                                    Text(
+                                        text = "📏 Cách $distanceString",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                    )
+                                }
+                            }
+
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(text = address, fontSize = 13.sp, color = textColor, fontWeight = FontWeight.Medium)
-                            Text(text = "Coordinates: $coords", fontSize = 11.sp, color = textColor.copy(alpha = 0.8f))
+                            Text(
+                                text = "▶ Chạm để mở rộng bản đồ & chỉ đường",
+                                fontSize = 10.sp,
+                                color = textColor.copy(alpha = 0.85f),
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     } else if (isPoll) {
                         val pollPayload = textContent.substringAfter("📊 POLL: ")
@@ -1332,7 +1501,7 @@ fun MessageItemBubble(
                                         .background(textColor.copy(alpha = 0.12f))
                                         .clickable { onVoteOption(index) }
                                 ) {
-                                    // Messenger Blue / Light Fill Bar
+                                    // Blue / Light Fill Bar
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth(percentFraction.coerceAtLeast(0.02f))
@@ -1480,5 +1649,96 @@ fun fetchRealLocation(
         }
     } catch (e: Exception) {
         onLocationFetched(10.762622, 106.660172, "Location Error")
+    }
+}
+
+@Composable
+fun UserProfileDialog(
+    peerUserId: String,
+    isBlocked: Boolean,
+    onDismiss: () -> Unit,
+    onBlockToggle: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Large Avatar
+                Box(
+                    modifier = Modifier
+                        .size(84.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = peerUserId.takeLast(1).ifBlank { "U" }.uppercase(),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 32.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Peer User Name / ID
+                Text(
+                    text = peerUserId,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = if (isBlocked) "🔴 Đã bị chặn" else "🟢 Trực tuyến • Tín hiệu E2EE",
+                    fontSize = 13.sp,
+                    color = if (isBlocked) Color.Red else com.noatnoat.chatapp.theme.OnlineGreen,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Action Button: Chặn người dùng / Bỏ chặn
+                Button(
+                    onClick = {
+                        onBlockToggle()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isBlocked) MaterialTheme.colorScheme.primary else Color(0xFFE31C23)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = if (isBlocked) "Bỏ chặn người dùng này" else "Chặn người dùng này",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Đóng", fontSize = 14.sp)
+                }
+            }
+        }
     }
 }

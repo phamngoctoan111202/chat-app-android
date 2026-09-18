@@ -1,7 +1,7 @@
 package com.noatnoat.chatapp.webrtc
 
 import android.content.Context
-import android.util.Log
+import com.noatnoat.chatapp.core.network.logging.AppLogger
 import org.webrtc.*
 
 class WebRtcEngineManager(
@@ -35,9 +35,9 @@ class WebRtcEngineManager(
                 .setOptions(options)
                 .createPeerConnectionFactory()
 
-            Log.d(TAG, "WebRTC PeerConnectionFactory initialized successfully.")
+            AppLogger.d(TAG, "WebRTC PeerConnectionFactory initialized successfully.")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize WebRTC PeerConnectionFactory", e)
+            AppLogger.e(TAG, "Failed to initialize WebRTC PeerConnectionFactory", e)
         }
     }
 
@@ -118,7 +118,7 @@ class WebRtcEngineManager(
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start camera capturer", e)
+            AppLogger.e(TAG, "Failed to start camera capturer", e)
         }
     }
 
@@ -132,13 +132,13 @@ class WebRtcEngineManager(
             try {
                 videoCapturer?.startCapture(1280, 720, 30)
             } catch (e: Exception) {
-                Log.w(TAG, "Video capturer resume failed", e)
+                AppLogger.w(TAG, "Video capturer resume failed", e)
             }
         } else {
             try {
                 videoCapturer?.stopCapture()
             } catch (e: Exception) {
-                Log.w(TAG, "Video capturer stop failed", e)
+                AppLogger.w(TAG, "Video capturer stop failed", e)
             }
         }
     }
@@ -155,7 +155,7 @@ class WebRtcEngineManager(
             peerConnection?.close()
             peerConnection = null
         } catch (e: Exception) {
-            Log.e(TAG, "Error closing WebRTC engine", e)
+            AppLogger.e(TAG, "Error closing WebRTC engine", e)
         }
     }
 

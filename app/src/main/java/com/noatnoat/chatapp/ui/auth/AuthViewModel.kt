@@ -112,10 +112,11 @@ class AuthViewModel(
                 val localBundle = CryptoManager.generateFullLocalKeyBundle()
                 keyStore.saveLocalKeyBundle(localBundle)
 
+                val validJwtDevToken = "dev_access_token_$devUserId"
                 sessionManager.saveSession(
                     userId = devUserId,
                     phoneNumber = phone,
-                    accessToken = "dev_access_token_$devUserId",
+                    accessToken = validJwtDevToken,
                     refreshToken = "dev_refresh_token_$devUserId"
                 )
 

@@ -128,7 +128,7 @@ fun PhoneOtpScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "End-to-End Encrypted Messenger",
+                    text = "End-to-End Encrypted Chat",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)
@@ -165,19 +165,6 @@ fun PhoneOtpScreen(
                                     Text("Send OTP Code (${selectedCountry.dialCode})", fontSize = 15.sp)
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                OutlinedButton(
-                                    onClick = {
-                                        val fullNumber = formatE164PhoneNumber(selectedCountry.dialCode, rawPhoneNumber)
-                                        viewModel.devBypassLogin(fullNumber)
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Text("⚡ Fast Dev Login (Bypass SMS)", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                }
-
                                 if (state is AuthUiState.Error) {
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Card(
@@ -194,20 +181,6 @@ fun PhoneOtpScreen(
                                                 fontSize = 13.sp,
                                                 lineHeight = 18.sp
                                             )
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Button(
-                                                onClick = {
-                                                    val fullNumber = formatE164PhoneNumber(selectedCountry.dialCode, rawPhoneNumber)
-                                                    viewModel.devBypassLogin(fullNumber)
-                                                },
-                                                modifier = Modifier.fillMaxWidth(),
-                                                shape = RoundedCornerShape(8.dp),
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = MaterialTheme.colorScheme.error
-                                                )
-                                            ) {
-                                                Text("🚀 Fast Dev Login (Bypass SMS)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                            }
                                         }
                                     }
                                 }

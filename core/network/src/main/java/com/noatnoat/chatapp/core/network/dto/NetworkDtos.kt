@@ -141,3 +141,22 @@ data class CastVoteRequest(
     @SerialName("option_index") val optionIndex: Int
 )
 
+@Serializable
+data class UserSearchResultDto(
+    @SerialName("user_id") val userId: String = "",
+    @SerialName("username") val username: String = "",
+    @SerialName("phone_number") val phoneNumber: String = "",
+    @SerialName("avatar_url") val avatarUrl: String = ""
+)
+
+@Serializable
+data class RegisterPushTokenRequest(
+    @SerialName("push_token") val pushToken: String,
+    @SerialName("platform") val platform: String = "android"
+)
+
+@Serializable
+data class BlockUserRequest(
+    @SerialName("blocked_id") val blockedId: String
+)
+

@@ -47,8 +47,6 @@ class WebSocketManager(
 
     private val candidateUrls = listOfNotNull(
         customBaseUrl,
-        "ws://10.0.2.2:8080/ws",
-        "ws://127.0.0.1:8080/ws",
         "wss://chatapp-backend-dyg1.onrender.com/ws"
     )
 
@@ -59,6 +57,7 @@ class WebSocketManager(
 
     private var webSocket: WebSocket? = null
     private var currentUserId: String? = null
+    private var currentToken: String? = null
     private var isExplicitDisconnect = false
     private var reconnectJob: kotlinx.coroutines.Job? = null
 
@@ -68,8 +67,13 @@ class WebSocketManager(
     private val _incomingMessages = MutableSharedFlow<WsFrame>(extraBufferCapacity = 64)
     val incomingMessages: SharedFlow<WsFrame> = _incomingMessages.asSharedFlow()
 
-    fun connect(userId: String) {
+    fun connect(userId: String, token: String? = null) {
+        if (userId.isBlank() || token.isNullOrBlank()) {
+            _connectionState.value = WsState.Disconnected
+            return
+        }
         currentUserId = userId
+        currentToken = token
         isExplicitDisconnect = false
         if (_connectionState.value is WsState.Connected || _connectionState.value is WsState.Connecting) {
             return
@@ -77,20 +81,25 @@ class WebSocketManager(
 
         reconnectJob?.cancel()
         reconnectJob = scope.launch {
-            attemptConnect(userId, targetUrlIndex = 0)
+            attemptConnect(userId, token, targetUrlIndex = 0)
         }
     }
 
-    private suspend fun attemptConnect(userId: String, targetUrlIndex: Int) {
+    private suspend fun attemptConnect(userId: String, token: String?, targetUrlIndex: Int) {
         if (isExplicitDisconnect) return
 
         _connectionState.value = WsState.Connecting
         val host = candidateUrls.getOrElse(targetUrlIndex) { candidateUrls.first() }
-        val wsUrl = if (host.contains("?")) "$host&uuid=$userId" else "$host?uuid=$userId"
+        var wsUrl = if (host.contains("?")) "$host&uuid=$userId" else "$host?uuid=$userId"
+        if (!token.isNullOrBlank()) {
+            wsUrl = "$wsUrl&token=$token"
+        }
 
-        val request = Request.Builder()
-            .url(wsUrl)
-            .build()
+        val requestBuilder = Request.Builder().url(wsUrl)
+        if (!token.isNullOrBlank()) {
+            requestBuilder.addHeader("Authorization", "Bearer $token")
+        }
+        val request = requestBuilder.build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -113,24 +122,24 @@ class WebSocketManager(
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 _connectionState.value = WsState.Error(t)
-                scheduleReconnect(userId, (targetUrlIndex + 1) % candidateUrls.size)
+                scheduleReconnect(userId, token, (targetUrlIndex + 1) % candidateUrls.size)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 _connectionState.value = WsState.Disconnected
                 if (!isExplicitDisconnect) {
-                    scheduleReconnect(userId, targetUrlIndex)
+                    scheduleReconnect(userId, token, targetUrlIndex)
                 }
             }
         })
     }
 
-    private fun scheduleReconnect(userId: String, nextUrlIndex: Int) {
+    private fun scheduleReconnect(userId: String, token: String?, nextUrlIndex: Int) {
         if (isExplicitDisconnect) return
         reconnectJob?.cancel()
         reconnectJob = scope.launch {
             kotlinx.coroutines.delay(4000)
-            attemptConnect(userId, nextUrlIndex)
+            attemptConnect(userId, token, nextUrlIndex)
         }
     }
 

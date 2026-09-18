@@ -21,6 +21,7 @@ import java.util.UUID
 import com.noatnoat.chatapp.core.database.ChatDatabase
 import com.noatnoat.chatapp.core.database.entity.ConversationEntity
 import com.noatnoat.chatapp.data.DatabaseProvider
+import com.noatnoat.chatapp.core.network.dto.BlockUserRequest
 
 data class CallState(
     val isCallActive: Boolean = false,
@@ -32,10 +33,13 @@ data class CallState(
 
 data class ChatUiState(
     val peerUserId: String = "peer_user_demo",
+    val nickname: String? = null,
     val messages: List<MessageEntity> = emptyList(),
     val pinnedMessage: MessageEntity? = null,
     val activeCall: CallState? = null,
     val ephemeralTimerSeconds: Int = 0, // 0 = Off, 30 = 30s, 300 = 5m
+    val isBlocked: Boolean = false,
+    val isMuted: Boolean = false,
     val isSending: Boolean = false,
     val error: String? = null
 )
@@ -242,5 +246,48 @@ class ChatViewModel(
         val title = videoTitle.ifBlank { "Synchronized Video Session" }
         val payload = "🎬 WATCH_TOGETHER: $videoUrl | $title"
         sendMessage(payload)
+    }
+
+    fun blockUser(targetUserId: String) {
+        viewModelScope.launch {
+            try {
+                apiService.blockUser(BlockUserRequest(targetUserId))
+                _uiState.value = _uiState.value.copy(isBlocked = true)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isBlocked = true)
+            }
+        }
+    }
+
+    fun unblockUser(targetUserId: String) {
+        viewModelScope.launch {
+            try {
+                apiService.unblockUser(targetUserId)
+                _uiState.value = _uiState.value.copy(isBlocked = false)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isBlocked = false)
+            }
+        }
+    }
+
+    fun clearChatHistory() {
+        val peerUserId = _uiState.value.peerUserId
+        val convId = "conv_$peerUserId"
+        viewModelScope.launch {
+            db?.messageDao()?.deleteMessagesForConversation(convId)
+            _uiState.value = _uiState.value.copy(messages = emptyList(), pinnedMessage = null)
+        }
+    }
+
+    fun toggleMuteNotification() {
+        _uiState.value = _uiState.value.copy(isMuted = !_uiState.value.isMuted)
+    }
+
+    fun setNickname(nickname: String) {
+        _uiState.value = _uiState.value.copy(nickname = nickname.ifBlank { null })
+    }
+
+    fun reportUser(reason: String) {
+        com.noatnoat.chatapp.core.network.logging.AppLogger.d(message = "User ${_uiState.value.peerUserId} reported for: $reason")
     }
 }

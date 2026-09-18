@@ -118,7 +118,7 @@ fun UnifiedAuthScreen(
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Header Branding Card (Messenger Style)
+                // Header Branding Card
                 Box(
                     modifier = Modifier
                         .size(72.dp)
@@ -143,7 +143,7 @@ fun UnifiedAuthScreen(
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
-                    text = "End-to-End Encrypted Messenger",
+                    text = "End-to-End Encrypted Chat",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)
@@ -340,22 +340,6 @@ fun UnifiedAuthScreen(
                                         ) {
                                             Text("Send SMS OTP Code (${selectedCountry.dialCode})", fontSize = 15.sp)
                                         }
-
-                                        Spacer(modifier = Modifier.height(8.dp))
-
-                                        OutlinedButton(
-                                            onClick = {
-                                                val fullNumber = formatE164PhoneNumber(selectedCountry.dialCode, rawPhoneNumber)
-                                                viewModel.devBypassLogin(fullNumber)
-                                            },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            shape = RoundedCornerShape(12.dp),
-                                            colors = ButtonDefaults.outlinedButtonColors(
-                                                contentColor = MaterialTheme.colorScheme.primary
-                                            )
-                                        ) {
-                                            Text("⚡ Fast Dev Login (Bypass SMS)", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                        }
                                     }
                                 } else {
                                     // TAB 1: EMAIL & PASSWORD (WITH OTP VERIFICATION)
@@ -450,20 +434,6 @@ fun UnifiedAuthScreen(
                                                 fontSize = 13.sp,
                                                 lineHeight = 18.sp
                                             )
-                                            Spacer(modifier = Modifier.height(10.dp))
-                                            Button(
-                                                onClick = {
-                                                    val fullNumber = formatE164PhoneNumber(selectedCountry.dialCode, rawPhoneNumber)
-                                                    viewModel.devBypassLogin(fullNumber)
-                                                },
-                                                modifier = Modifier.fillMaxWidth(),
-                                                shape = RoundedCornerShape(8.dp),
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = MaterialTheme.colorScheme.error
-                                                )
-                                            ) {
-                                                Text("🚀 Fast Dev Login (Bypass SMS)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                            }
                                         }
                                     }
                                 }

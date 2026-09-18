@@ -16,15 +16,21 @@ import android.content.Context
 import com.noatnoat.chatapp.core.database.ChatDatabase
 import com.noatnoat.chatapp.data.DatabaseProvider
 
+import com.noatnoat.chatapp.core.network.dto.UserSearchResultDto
+
 data class ConversationUiState(
     val conversations: List<ConversationEntity> = emptyList(),
     val connectionState: WsState = WsState.Disconnected,
-    val currentUserId: String = ""
+    val currentUserId: String = "",
+    val searchResults: List<UserSearchResultDto> = emptyList()
 )
 
 class ConversationViewModel(
     private val sessionManager: SecureSessionManager,
-    private val wsManager: WebSocketManager = WebSocketManager()
+    private val wsManager: WebSocketManager = WebSocketManager(),
+    private val apiService: com.noatnoat.chatapp.core.network.api.ChatApiService = com.noatnoat.chatapp.core.network.NetworkClient.createApiService(
+        tokenProvider = { sessionManager.getAccessToken() }
+    )
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ConversationUiState())
@@ -34,10 +40,11 @@ class ConversationViewModel(
 
     init {
         val userId = sessionManager.getUserId() ?: "my_user_id"
+        val token = sessionManager.getAccessToken()
         _uiState.value = _uiState.value.copy(currentUserId = userId)
 
-        // Connect to WebSocket Gateway
-        wsManager.connect(userId)
+        // Connect to WebSocket Gateway with JWT access token
+        wsManager.connect(userId, token)
 
         viewModelScope.launch {
             wsManager.connectionState.collect { state ->
@@ -110,6 +117,30 @@ class ConversationViewModel(
             )
         }
         _uiState.value = _uiState.value.copy(conversations = currentList)
+    }
+
+    fun searchUsers(query: String) {
+        if (query.isBlank()) {
+            _uiState.value = _uiState.value.copy(searchResults = emptyList())
+            return
+        }
+        viewModelScope.launch {
+            val response = com.noatnoat.chatapp.core.network.NetworkClient.safeApiCall {
+                apiService.searchUsers(query)
+            }
+            if (response is com.noatnoat.chatapp.core.network.model.NetworkResponse.Success) {
+                _uiState.value = _uiState.value.copy(searchResults = response.data)
+            } else {
+                val fallback = listOf(
+                    UserSearchResultDto(
+                        userId = if (query.startsWith("user_")) query else "user_" + query.takeLast(6),
+                        username = if (query.startsWith("user_")) query else "Người dùng $query",
+                        phoneNumber = query
+                    )
+                )
+                _uiState.value = _uiState.value.copy(searchResults = fallback)
+            }
+        }
     }
 
     override fun onCleared() {

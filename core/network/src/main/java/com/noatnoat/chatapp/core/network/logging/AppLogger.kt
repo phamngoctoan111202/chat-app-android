@@ -1,6 +1,7 @@
 package com.noatnoat.chatapp.core.network.logging
 
 import android.util.Log
+import com.noatnoat.chatapp.core.network.BuildConfig
 
 interface LogListener {
     fun onLog(level: String, tag: String, message: String, throwable: Throwable?)
@@ -10,7 +11,7 @@ object AppLogger {
 
     private const val DEFAULT_TAG = "SignalChatApp"
     private var persistentListener: LogListener? = null
-    var isDebugMode: Boolean = true
+    var isDebugMode: Boolean = BuildConfig.DEBUG
 
     fun setPersistentListener(listener: LogListener) {
         this.persistentListener = listener
