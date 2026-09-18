@@ -63,6 +63,13 @@ class ConversationViewModel(
     }
 
     fun loadConversations(context: Context) {
+        val userId = sessionManager.getUserId()
+        val token = sessionManager.getAccessToken()
+        if (!userId.isNullOrBlank() && !token.isNullOrBlank()) {
+            _uiState.value = _uiState.value.copy(currentUserId = userId)
+            wsManager.connect(userId, token)
+        }
+
         val database = DatabaseProvider.getDatabase(context)
         db = database
         viewModelScope.launch {
