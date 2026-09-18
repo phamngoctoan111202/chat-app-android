@@ -160,6 +160,6 @@ class WebRtcEngineManager(
     }
 
     companion object {
-        private const val TAG = "WebRtcEngineManager"
+        private const val TAG = "FLOW_WEBRTC"
     }
 }

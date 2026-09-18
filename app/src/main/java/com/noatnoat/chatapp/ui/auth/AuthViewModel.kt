@@ -40,7 +40,7 @@ class AuthViewModel(
 ) : ViewModel() {
 
     private companion object {
-        const val TAG = "AuthViewModel"
+        const val TAG = "FLOW_AUTH"
     }
 
     private val _uiState = MutableStateFlow<AuthUiState>(

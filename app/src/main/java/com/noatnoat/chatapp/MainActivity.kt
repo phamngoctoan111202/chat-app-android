@@ -20,7 +20,7 @@ class MainActivity : ComponentActivity() {
     // Log FCM Token for testing (Debug Mode Only)
     FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
       if (task.isSuccessful) {
-        AppLogger.d("FCM_TOKEN", "MY_FCM_TOKEN: ${task.result}")
+        AppLogger.d("FLOW_PUSH", "MY_FCM_TOKEN: ${task.result}")
       }
     }
 

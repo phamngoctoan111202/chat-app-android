@@ -75,6 +75,6 @@ class ChatFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     companion object {
-        private const val TAG = "ChatFcmService"
+        private const val TAG = "FLOW_PUSH"
     }
 }

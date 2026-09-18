@@ -19,7 +19,7 @@ sealed class FirebasePhoneAuthResult {
 
 object FirebasePhoneAuthManager {
 
-    private const val TAG = "FirebasePhoneAuthManager"
+    private const val TAG = "FLOW_AUTH"
 
     fun isFirebaseAvailable(activity: Activity): Boolean {
         return try {

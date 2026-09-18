@@ -84,7 +84,7 @@ fun ConversationListScreen(
     
     val totalUnread = uiState.conversations.sumOf { it.unreadCount }
 
-    val TAG = "ConversationListScreen"
+    val TAG = "FLOW_CONVERSATION"
     if (isSearchDialogOpen) {
         UserSearchDialog(
             viewModel = viewModel,

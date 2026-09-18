@@ -1,6 +1,7 @@
 package com.noatnoat.chatapp.core.network.websocket
 
 import com.noatnoat.chatapp.core.network.dto.SendMessageRequest
+import com.noatnoat.chatapp.core.network.logging.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -42,6 +43,10 @@ sealed interface WsState {
 class WebSocketManager(
     private val customBaseUrl: String? = null
 ) {
+    private companion object {
+        const val TAG = "FLOW_WEBSOCKET"
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
@@ -69,6 +74,7 @@ class WebSocketManager(
 
     fun connect(userId: String, token: String? = null) {
         if (userId.isBlank() || token.isNullOrBlank()) {
+            AppLogger.w(TAG, "Cannot connect: userId or token is blank (userId=$userId, tokenNull=${token == null})")
             _connectionState.value = WsState.Disconnected
             return
         }
@@ -76,6 +82,7 @@ class WebSocketManager(
         currentToken = token
         isExplicitDisconnect = false
         if (_connectionState.value is WsState.Connected || _connectionState.value is WsState.Connecting) {
+            AppLogger.d(TAG, "Already connected or connecting. Skipping connect call.")
             return
         }
 
@@ -95,6 +102,8 @@ class WebSocketManager(
             wsUrl = "$wsUrl&token=$token"
         }
 
+        AppLogger.i(TAG, "Attempting WebSocket connection to: $wsUrl")
+
         val requestBuilder = Request.Builder().url(wsUrl)
         if (!token.isNullOrBlank()) {
             requestBuilder.addHeader("Authorization", "Bearer $token")
@@ -103,10 +112,12 @@ class WebSocketManager(
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                AppLogger.i(TAG, "WebSocket connected successfully (Response code ${response.code})")
                 _connectionState.value = WsState.Connected
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
+                AppLogger.d(TAG, "Received raw WebSocket message: $text")
                 try {
                     val frame = json.decodeFromString<WsFrame>(text)
                     scope.launch {
@@ -121,11 +132,19 @@ class WebSocketManager(
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                val isUnauthorized = response?.code == 401 || t.message?.contains("401") == true
+                AppLogger.e(TAG, "WebSocket connection failure (Unauthorized=$isUnauthorized, Code=${response?.code}): ${t.message}", t)
                 _connectionState.value = WsState.Error(t)
-                scheduleReconnect(userId, token, (targetUrlIndex + 1) % candidateUrls.size)
+
+                if (isUnauthorized) {
+                    AppLogger.w(TAG, "401 Unauthorized detected. Stopping automatic reconnect attempts.")
+                } else {
+                    scheduleReconnect(userId, token, (targetUrlIndex + 1) % candidateUrls.size)
+                }
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                AppLogger.i(TAG, "WebSocket closed by remote peer (Code=$code, Reason=$reason)")
                 _connectionState.value = WsState.Disconnected
                 if (!isExplicitDisconnect) {
                     scheduleReconnect(userId, token, targetUrlIndex)
@@ -135,21 +154,27 @@ class WebSocketManager(
     }
 
     private fun scheduleReconnect(userId: String, token: String?, nextUrlIndex: Int) {
-        if (isExplicitDisconnect) return
+        if (isExplicitDisconnect || token.isNullOrBlank()) return
         reconnectJob?.cancel()
         reconnectJob = scope.launch {
+            AppLogger.d(TAG, "Scheduling WebSocket reconnect in 4 seconds...")
             kotlinx.coroutines.delay(4000)
             attemptConnect(userId, token, nextUrlIndex)
         }
     }
 
     fun sendMessage(frame: WsFrame): Boolean {
-        val ws = webSocket ?: return false
+        val ws = webSocket ?: run {
+            AppLogger.w(TAG, "Cannot send message: WebSocket instance is null")
+            return false
+        }
         val jsonStr = json.encodeToString(frame)
+        AppLogger.d(TAG, "Sending WebSocket frame: $jsonStr")
         return ws.send(jsonStr)
     }
 
     fun disconnect() {
+        AppLogger.i(TAG, "Disconnecting WebSocket explicitly")
         isExplicitDisconnect = true
         reconnectJob?.cancel()
         webSocket?.close(1000, "User disconnected")
