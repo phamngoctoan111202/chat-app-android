@@ -81,7 +81,7 @@ class ConversationViewModel(
 
     fun startNewConversation(peerPhoneNumber: String) {
         if (peerPhoneNumber.isBlank()) return
-        val peerId = "user_" + peerPhoneNumber.takeLast(6)
+        val peerId = if (peerPhoneNumber.startsWith("user_") || peerPhoneNumber.length > 20) peerPhoneNumber else "user_" + peerPhoneNumber.filter { it.isLetterOrDigit() }
         val convId = "conv_$peerId"
 
         val newConv = ConversationEntity(
@@ -127,25 +127,30 @@ class ConversationViewModel(
     }
 
     fun searchUsers(query: String) {
-        if (query.isBlank()) {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) {
             _uiState.value = _uiState.value.copy(searchResults = emptyList())
             return
         }
+        val formattedPeerId = if (trimmed.startsWith("user_") || trimmed.length > 20) trimmed else "user_" + trimmed.filter { it.isLetterOrDigit() }
+        val directItem = UserSearchResultDto(
+            userId = formattedPeerId,
+            username = trimmed,
+            phoneNumber = trimmed
+        )
+
         viewModelScope.launch {
             val response = com.noatnoat.chatapp.core.network.NetworkClient.safeApiCall {
-                apiService.searchUsers(query)
+                apiService.searchUsers(trimmed)
             }
-            if (response is com.noatnoat.chatapp.core.network.model.NetworkResponse.Success) {
-                _uiState.value = _uiState.value.copy(searchResults = response.data)
+            if (response is com.noatnoat.chatapp.core.network.model.NetworkResponse.Success && response.data.isNotEmpty()) {
+                val list = response.data.toMutableList()
+                if (list.none { it.userId == formattedPeerId || it.phoneNumber == trimmed }) {
+                    list.add(0, directItem)
+                }
+                _uiState.value = _uiState.value.copy(searchResults = list)
             } else {
-                val fallback = listOf(
-                    UserSearchResultDto(
-                        userId = if (query.startsWith("user_")) query else "user_" + query.takeLast(6),
-                        username = if (query.startsWith("user_")) query else "Người dùng $query",
-                        phoneNumber = query
-                    )
-                )
-                _uiState.value = _uiState.value.copy(searchResults = fallback)
+                _uiState.value = _uiState.value.copy(searchResults = listOf(directItem))
             }
         }
     }

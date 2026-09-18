@@ -357,7 +357,8 @@ fun UserSearchDialog(
                             keyboardActions = KeyboardActions(
                                 onSearch = {
                                     if (searchQuery.isNotBlank()) {
-                                        val peerId = if (searchQuery.startsWith("user_")) searchQuery else "user_" + searchQuery.takeLast(6)
+                                        val trimmed = searchQuery.trim()
+                                        val peerId = if (trimmed.startsWith("user_") || trimmed.length > 20) trimmed else "user_" + trimmed.filter { it.isLetterOrDigit() }
                                         onUserSelected(peerId)
                                     }
                                 }
@@ -403,7 +404,8 @@ fun UserSearchDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    val peerId = if (searchQuery.startsWith("user_")) searchQuery else "user_" + searchQuery.takeLast(6)
+                                    val trimmed = searchQuery.trim()
+                                    val peerId = if (trimmed.startsWith("user_") || trimmed.length > 20) trimmed else "user_" + trimmed.filter { it.isLetterOrDigit() }
                                     onUserSelected(peerId)
                                 }
                                 .padding(vertical = 12.dp),
