@@ -55,9 +55,11 @@ class WebSocketManager(
         "wss://chatapp-backend-dyg1.onrender.com/ws"
     )
 
+    // Layer 1 (Transport Layer): 15-second PING Heartbeat to prevent idle proxy timeout
     private val client = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
-        .pingInterval(10, TimeUnit.SECONDS)
+        .pingInterval(15, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)
         .build()
 
     private var webSocket: WebSocket? = null
@@ -65,6 +67,7 @@ class WebSocketManager(
     private var currentToken: String? = null
     private var isExplicitDisconnect = false
     private var reconnectJob: kotlinx.coroutines.Job? = null
+    private var consecutiveFailures = 0
 
     private val _connectionState = MutableStateFlow<WsState>(WsState.Disconnected)
     val connectionState: StateFlow<WsState> = _connectionState.asStateFlow()
@@ -82,7 +85,7 @@ class WebSocketManager(
         currentToken = token
         isExplicitDisconnect = false
         if (_connectionState.value is WsState.Connected || _connectionState.value is WsState.Connecting) {
-            AppLogger.d(TAG, "Already connected or connecting. Skipping connect call.")
+            AppLogger.d(TAG, "Already connected or connecting. Skipping duplicate connect call.")
             return
         }
 
@@ -95,14 +98,18 @@ class WebSocketManager(
     private suspend fun attemptConnect(userId: String, token: String?, targetUrlIndex: Int) {
         if (isExplicitDisconnect) return
 
-        _connectionState.value = WsState.Connecting
+        // Set state to Connecting if not silently retrying
+        if (consecutiveFailures > 3 || _connectionState.value !is WsState.Connected) {
+            _connectionState.value = WsState.Connecting
+        }
+
         val host = candidateUrls.getOrElse(targetUrlIndex) { candidateUrls.first() }
         var wsUrl = if (host.contains("?")) "$host&uuid=$userId" else "$host?uuid=$userId"
         if (!token.isNullOrBlank()) {
             wsUrl = "$wsUrl&token=$token"
         }
 
-        AppLogger.i(TAG, "Attempting WebSocket connection to: $wsUrl")
+        AppLogger.i(TAG, "Attempting WebSocket connection to: $wsUrl (Failure count: $consecutiveFailures)")
 
         val requestBuilder = Request.Builder().url(wsUrl)
         if (!token.isNullOrBlank()) {
@@ -112,7 +119,8 @@ class WebSocketManager(
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                AppLogger.i(TAG, "WebSocket connected successfully (Response code ${response.code})")
+                consecutiveFailures = 0
+                AppLogger.i(TAG, "WebSocket connected successfully (Response code ${response.code}). Heartbeat 15s active.")
                 _connectionState.value = WsState.Connected
             }
 
@@ -133,32 +141,42 @@ class WebSocketManager(
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 val isUnauthorized = response?.code == 401 || t.message?.contains("401") == true
-                AppLogger.e(TAG, "WebSocket connection failure (Unauthorized=$isUnauthorized, Code=${response?.code}): ${t.message}", t)
-                _connectionState.value = WsState.Error(t)
+                consecutiveFailures++
 
                 if (isUnauthorized) {
-                    AppLogger.w(TAG, "401 Unauthorized detected. Stopping automatic reconnect attempts.")
+                    AppLogger.e(TAG, "401 Unauthorized detected. Stopping automatic reconnect attempts.", t)
+                    _connectionState.value = WsState.Error(t)
+                    return
+                }
+
+                // Layer 2 (UX Layer): Silent background reconnect for transient socket drops (attempts 1 to 3)
+                if (consecutiveFailures <= 3) {
+                    AppLogger.d(TAG, "Transient socket glitch ($consecutiveFailures/3). Performing silent background reconnect...")
+                    scheduleReconnect(userId, token, targetUrlIndex, delayMs = 2000L)
                 } else {
-                    scheduleReconnect(userId, token, (targetUrlIndex + 1) % candidateUrls.size)
+                    AppLogger.w(TAG, "WebSocket connection failed persistently ($consecutiveFailures attempts): ${t.message}")
+                    _connectionState.value = WsState.Error(t)
+                    scheduleReconnect(userId, token, (targetUrlIndex + 1) % candidateUrls.size, delayMs = 4000L)
                 }
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 AppLogger.i(TAG, "WebSocket closed by remote peer (Code=$code, Reason=$reason)")
-                _connectionState.value = WsState.Disconnected
                 if (!isExplicitDisconnect) {
-                    scheduleReconnect(userId, token, targetUrlIndex)
+                    scheduleReconnect(userId, token, targetUrlIndex, delayMs = 2000L)
+                } else {
+                    _connectionState.value = WsState.Disconnected
                 }
             }
         })
     }
 
-    private fun scheduleReconnect(userId: String, token: String?, nextUrlIndex: Int) {
+    private fun scheduleReconnect(userId: String, token: String?, nextUrlIndex: Int, delayMs: Long = 3000L) {
         if (isExplicitDisconnect || token.isNullOrBlank()) return
         reconnectJob?.cancel()
         reconnectJob = scope.launch {
-            AppLogger.d(TAG, "Scheduling WebSocket reconnect in 4 seconds...")
-            kotlinx.coroutines.delay(4000)
+            AppLogger.d(TAG, "Scheduling WebSocket reconnect in ${delayMs}ms...")
+            kotlinx.coroutines.delay(delayMs)
             attemptConnect(userId, token, nextUrlIndex)
         }
     }
