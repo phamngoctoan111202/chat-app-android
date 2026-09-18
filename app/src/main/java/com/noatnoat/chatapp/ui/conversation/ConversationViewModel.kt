@@ -97,6 +97,15 @@ class ConversationViewModel(
         }
     }
 
+    fun deleteConversation(conversation: ConversationEntity) {
+        viewModelScope.launch {
+            db?.conversationDao()?.deleteConversation(conversation.conversationId)
+            db?.messageDao()?.deleteMessagesForConversation(conversation.conversationId)
+            val updatedList = _uiState.value.conversations.filter { it.conversationId != conversation.conversationId }
+            _uiState.value = _uiState.value.copy(conversations = updatedList)
+        }
+    }
+
     private fun onIncomingMessage(senderId: String, text: String, timestamp: Long) {
         val convId = "conv_$senderId"
         val currentList = _uiState.value.conversations.toMutableList()

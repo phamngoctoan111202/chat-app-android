@@ -64,9 +64,20 @@ import java.util.Date
 import java.util.Locale
 import java.util.Calendar
 
+import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.noatnoat.chatapp.core.network.logging.AppLogger
@@ -78,13 +89,41 @@ fun ConversationListScreen(
     onSettingsClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     var searchInput by remember { mutableStateOf("") }
     var selectedTab by remember { mutableIntStateOf(0) }
     var isSearchDialogOpen by remember { mutableStateOf(false) }
+    var conversationToDelete by remember { mutableStateOf<ConversationEntity?>(null) }
     
     val totalUnread = uiState.conversations.sumOf { it.unreadCount }
 
     val TAG = "FLOW_CONVERSATION"
+
+    if (conversationToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { conversationToDelete = null },
+            title = { Text("Xác nhận xóa đoạn chat?") },
+            text = { Text("Bạn có chắc chắn muốn xóa toàn bộ lịch sử trò chuyện với ${conversationToDelete?.peerPhoneNumber}? Mọi tin nhắn mã hóa E2EE sẽ bị xóa khỏi máy và không thể hoàn tác.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        conversationToDelete?.let { conv ->
+                            viewModel.deleteConversation(conv)
+                            Toast.makeText(context, "Đã xóa cuộc trò chuyện", Toast.LENGTH_SHORT).show()
+                        }
+                        conversationToDelete = null
+                    }
+                ) {
+                    Text("Xóa", color = Color(0xFFE31C23), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { conversationToDelete = null }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
     if (isSearchDialogOpen) {
         UserSearchDialog(
             viewModel = viewModel,
@@ -196,10 +235,11 @@ fun ConversationListScreen(
                                 }
                             }
                         } else {
-                            items(filteredConversations) { conv ->
+                            items(filteredConversations, key = { it.conversationId }) { conv ->
                                 ConversationItemRow(
                                     conversation = conv,
-                                    onClick = { onConversationClick(conv.peerUserId) }
+                                    onClick = { onConversationClick(conv.peerUserId) },
+                                    onDeleteRequest = { conversationToDelete = conv }
                                 )
                             }
                         }
@@ -475,89 +515,130 @@ fun UserSearchDialog(
     }
 }
 
-
-
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ConversationItemRow(
     conversation: ConversationEntity,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDeleteRequest: () -> Unit
 ) {
     val isUnread = conversation.unreadCount > 0
     val textColor = if (isUnread) Color.Black else Color.Gray
     val fontWeight = if (isUnread) FontWeight.Bold else FontWeight.Normal
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        val initial = conversation.peerPhoneNumber.takeLast(1).ifBlank { "U" }
-        Box(
-            modifier = Modifier
-                .size(54.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFE4E6EB)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = initial.uppercase(),
-                color = Color.DarkGray,
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp
-            )
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            if (dismissValue == SwipeToDismissBoxValue.EndToStart || dismissValue == SwipeToDismissBoxValue.StartToEnd) {
+                onDeleteRequest()
+                false
+            } else {
+                false
+            }
         }
+    )
 
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(
-            modifier = Modifier.weight(1f)
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            val direction = dismissState.dismissDirection
+            val alignment = if (direction == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFFFFEDED))
+                    .padding(horizontal = 24.dp),
+                contentAlignment = alignment
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Xóa cuộc trò chuyện",
+                        tint = Color(0xFFE31C23),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Xóa", color = Color(0xFFE31C23), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
+            }
+        }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White)
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onDeleteRequest
+                )
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            val initial = conversation.peerPhoneNumber.takeLast(1).ifBlank { "U" }
+            Box(
+                modifier = Modifier
+                    .size(54.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE4E6EB)),
+                contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = conversation.peerPhoneNumber, // Tạm lấy sđt làm tên
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp,
-                    color = Color.Black
-                )
-
-                Text(
-                    text = formatHomeTime(conversation.lastTimestamp),
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    fontWeight = fontWeight
+                    text = initial.uppercase(),
+                    color = Color.DarkGray,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
                 )
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.weight(1f)
             ) {
-                Text(
-                    text = conversation.lastMessageText,
-                    fontSize = 14.sp,
-                    color = textColor,
-                    fontWeight = fontWeight,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                
-                if (isUnread) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF0080FF))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = conversation.peerPhoneNumber,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp,
+                        color = Color.Black
                     )
+
+                    Text(
+                        text = formatHomeTime(conversation.lastTimestamp),
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        fontWeight = fontWeight
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = conversation.lastMessageText,
+                        fontSize = 14.sp,
+                        color = textColor,
+                        fontWeight = fontWeight,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    if (isUnread) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF0080FF))
+                        )
+                    }
                 }
             }
         }
