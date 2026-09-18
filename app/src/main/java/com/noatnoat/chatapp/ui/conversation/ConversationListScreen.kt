@@ -357,8 +357,7 @@ fun UserSearchDialog(
                             keyboardActions = KeyboardActions(
                                 onSearch = {
                                     if (searchQuery.isNotBlank()) {
-                                        val trimmed = searchQuery.trim()
-                                        val peerId = if (trimmed.startsWith("user_") || trimmed.length > 20) trimmed else "user_" + trimmed.filter { it.isLetterOrDigit() }
+                                        val peerId = if (searchQuery.startsWith("user_")) searchQuery else "user_" + searchQuery.takeLast(6)
                                         onUserSelected(peerId)
                                     }
                                 }
@@ -398,37 +397,24 @@ fun UserSearchDialog(
                     .fillMaxSize()
                     .padding(horizontal = 16.dp)
             ) {
-                if (searchQuery.isNotBlank()) {
+                if (searchQuery.isNotBlank() && uiState.searchResults.isEmpty()) {
                     item {
-                        Row(
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
-                                    val trimmed = searchQuery.trim()
-                                    val peerId = if (trimmed.startsWith("user_") || trimmed.length > 20) trimmed else "user_" + trimmed.filter { it.isLetterOrDigit() }
-                                    onUserSelected(peerId)
-                                }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF0080FF)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = Color.White)
-                            }
-                            Spacer(modifier = Modifier.width(14.dp))
-                            Column {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
-                                    text = "Tạo cuộc trò chuyện với: $searchQuery",
+                                    text = "❌ Không tìm thấy người dùng phù hợp",
                                     fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFE31C23),
                                     fontSize = 15.sp
                                 )
+                                Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = "Bắt đầu nhắn tin E2EE mới",
+                                    text = "Vui lòng kiểm tra lại số điện thoại hoặc tên tài khoản đã đăng ký.",
                                     color = Color.Gray,
                                     fontSize = 13.sp
                                 )

@@ -79,15 +79,14 @@ class ConversationViewModel(
         }
     }
 
-    fun startNewConversation(peerPhoneNumber: String) {
-        if (peerPhoneNumber.isBlank()) return
-        val peerId = if (peerPhoneNumber.startsWith("user_") || peerPhoneNumber.length > 20) peerPhoneNumber else "user_" + peerPhoneNumber.filter { it.isLetterOrDigit() }
-        val convId = "conv_$peerId"
+    fun startNewConversation(peerUserId: String, phoneNumber: String = "") {
+        if (peerUserId.isBlank()) return
+        val convId = "conv_$peerUserId"
 
         val newConv = ConversationEntity(
             conversationId = convId,
-            peerUserId = peerId,
-            peerPhoneNumber = peerPhoneNumber,
+            peerUserId = peerUserId,
+            peerPhoneNumber = if (phoneNumber.isNotBlank()) phoneNumber else peerUserId,
             lastMessageText = "Conversation started",
             lastTimestamp = System.currentTimeMillis(),
             unreadCount = 0
@@ -127,30 +126,25 @@ class ConversationViewModel(
     }
 
     fun searchUsers(query: String) {
-        val trimmed = query.trim()
-        if (trimmed.isBlank()) {
+        if (query.isBlank()) {
             _uiState.value = _uiState.value.copy(searchResults = emptyList())
             return
         }
-        val formattedPeerId = if (trimmed.startsWith("user_") || trimmed.length > 20) trimmed else "user_" + trimmed.filter { it.isLetterOrDigit() }
-        val directItem = UserSearchResultDto(
-            userId = formattedPeerId,
-            username = trimmed,
-            phoneNumber = trimmed
-        )
-
         viewModelScope.launch {
             val response = com.noatnoat.chatapp.core.network.NetworkClient.safeApiCall {
-                apiService.searchUsers(trimmed)
+                apiService.searchUsers(query)
             }
-            if (response is com.noatnoat.chatapp.core.network.model.NetworkResponse.Success && response.data.isNotEmpty()) {
-                val list = response.data.toMutableList()
-                if (list.none { it.userId == formattedPeerId || it.phoneNumber == trimmed }) {
-                    list.add(0, directItem)
-                }
-                _uiState.value = _uiState.value.copy(searchResults = list)
+            if (response is com.noatnoat.chatapp.core.network.model.NetworkResponse.Success) {
+                _uiState.value = _uiState.value.copy(searchResults = response.data)
             } else {
-                _uiState.value = _uiState.value.copy(searchResults = listOf(directItem))
+                val fallback = listOf(
+                    UserSearchResultDto(
+                        userId = if (query.startsWith("user_")) query else "user_" + query.takeLast(6),
+                        username = if (query.startsWith("user_")) query else "Người dùng $query",
+                        phoneNumber = query
+                    )
+                )
+                _uiState.value = _uiState.value.copy(searchResults = fallback)
             }
         }
     }
