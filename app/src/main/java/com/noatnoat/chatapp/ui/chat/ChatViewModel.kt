@@ -99,8 +99,7 @@ class ChatViewModel(
                         val keyBundleRes = NetworkClient.safeApiCall { apiService.getKeyBundle(frame.senderId) }
                         if (keyBundleRes is NetworkResponse.Success) {
                             val peerPubKey = keyBundleRes.data.identityKey
-                            val myPrivateKey = keyStore.getIdentityKeyPair()?.privateKey
-                                ?: CryptoManager.generateIdentityKeyPair().privateKey
+                            val myPrivateKey = keyStore.getOrCreateLocalKeyBundle().identityKeyPair.privateKey
                             sharedSecret = CryptoManager.deriveSharedSecret(myPrivateKey, peerPubKey)
                             AppLogger.i(TAG, "🔑 Derived E2EE Shared Secret on-the-fly for sender '${frame.senderId}'")
                         }
@@ -180,8 +179,7 @@ class ChatViewModel(
                     } else {
                         CryptoManager.generateIdentityKeyPair().publicKey
                     }
-                    val myPrivateKey = keyStore.getIdentityKeyPair()?.privateKey
-                        ?: CryptoManager.generateIdentityKeyPair().privateKey
+                    val myPrivateKey = keyStore.getOrCreateLocalKeyBundle().identityKeyPair.privateKey
 
                     sharedSecret = CryptoManager.deriveSharedSecret(
                         privateKeyBase64 = myPrivateKey,
@@ -222,8 +220,7 @@ class ChatViewModel(
                     CryptoManager.generateIdentityKeyPair().publicKey
                 }
 
-                val myPrivateKey = keyStore.getIdentityKeyPair()?.privateKey
-                    ?: CryptoManager.generateIdentityKeyPair().privateKey
+                val myPrivateKey = keyStore.getOrCreateLocalKeyBundle().identityKeyPair.privateKey
 
                 sharedSecret = CryptoManager.deriveSharedSecret(
                     privateKeyBase64 = myPrivateKey,

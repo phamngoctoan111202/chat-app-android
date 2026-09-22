@@ -101,6 +101,28 @@ class ConversationViewModel(
         if (!userId.isNullOrBlank() && !token.isNullOrBlank()) {
             _uiState.value = _uiState.value.copy(currentUserId = userId)
             wsManager.connect(userId, token)
+
+            // Auto-sync E2EE Key Bundle to server to ensure public key on backend matches local persistent private key
+            viewModelScope.launch {
+                try {
+                    val localBundle = keyStore.getOrCreateLocalKeyBundle(context)
+                    val uploadReq = com.noatnoat.chatapp.core.network.dto.UploadKeysRequest(
+                        identityKey = localBundle.identityKeyPair.publicKey,
+                        signedPreKey = com.noatnoat.chatapp.core.network.dto.SignedPreKeyDto(
+                            keyId = localBundle.signedPreKey.keyId,
+                            publicKey = localBundle.signedPreKey.publicKey,
+                            signature = localBundle.signedPreKey.signature
+                        ),
+                        oneTimePreKeys = localBundle.oneTimePreKeys.map {
+                            com.noatnoat.chatapp.core.network.dto.PreKeyDto(keyId = it.keyId, publicKey = it.publicKey)
+                        }
+                    )
+                    NetworkClient.safeApiCall { apiService.uploadKeys(uploadReq) }
+                    AppLogger.i("FLOW_CHAT", "🔑 Auto-synced persistent E2EE Identity Public Key to backend server successfully")
+                } catch (e: Exception) {
+                    AppLogger.e("FLOW_CHAT", "Failed to sync E2EE key bundle to server: ${e.message}")
+                }
+            }
         }
 
         val database = DatabaseProvider.getDatabase(context)
@@ -154,9 +176,8 @@ class ConversationViewModel(
         AppLogger.i("FLOW_CHAT", "📩 WEBSOCKET CHAT FRAME RECEIVED IN CONVERSATION VIEWMODEL -> sender='$senderId', messageId='${frame.messageId}', ciphertext='$effectiveCiphertext'")
 
         viewModelScope.launch {
-            // Pre-derive shared secret on-the-fly for sender
-            val myPrivateKey = keyStore.getIdentityKeyPair()?.privateKey
-                ?: CryptoManager.generateIdentityKeyPair().privateKey
+            // Pre-derive shared secret on-the-fly for sender using persistent private key
+            val myPrivateKey = keyStore.getOrCreateLocalKeyBundle().identityKeyPair.privateKey
 
             var secretKeyBytes: ByteArray? = null
             try {
