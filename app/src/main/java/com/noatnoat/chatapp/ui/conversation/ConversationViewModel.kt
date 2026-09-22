@@ -19,6 +19,14 @@ import com.noatnoat.chatapp.data.DatabaseProvider
 import com.noatnoat.chatapp.core.network.dto.UserSearchResultDto
 import com.noatnoat.chatapp.core.network.logging.AppLogger
 
+import com.noatnoat.chatapp.core.crypto.CryptoManager
+import com.noatnoat.chatapp.core.crypto.SignalIdentityKeyStore
+import com.noatnoat.chatapp.core.crypto.model.EncryptedPayload
+import com.noatnoat.chatapp.core.database.entity.MessageEntity
+import com.noatnoat.chatapp.core.network.NetworkClient
+import com.noatnoat.chatapp.core.network.model.NetworkResponse
+import com.noatnoat.chatapp.core.network.websocket.WsFrame
+
 private const val SEARCH_TAG = "FLOW_USER_SEARCH"
 
 data class ConversationUiState(
@@ -30,6 +38,7 @@ data class ConversationUiState(
 
 class ConversationViewModel(
     private val sessionManager: SecureSessionManager,
+    private val keyStore: SignalIdentityKeyStore = SignalIdentityKeyStore(),
     private val wsManager: WebSocketManager = WebSocketManager.instance,
     private val apiService: com.noatnoat.chatapp.core.network.api.ChatApiService = com.noatnoat.chatapp.core.network.NetworkClient.createApiService(
         tokenProvider = { sessionManager.getAccessToken() }
@@ -58,11 +67,12 @@ class ConversationViewModel(
                     val newAccessToken = result.data.accessToken
                     if (newAccessToken.isNotBlank()) {
                         sessionManager.updateAccessToken(newAccessToken)
-                        newAccessToken
-                    } else null
+                        return@setTokenRefreshProvider newAccessToken
+                    }
                 }
-                else -> null
+                else -> {}
             }
+            null
         }
 
         // Connect to WebSocket Gateway with JWT access token
@@ -74,13 +84,12 @@ class ConversationViewModel(
             }
         }
 
-        // Listen for incoming WebSocket messages
+        // Listen for incoming WebSocket messages globally across application
         viewModelScope.launch {
             wsManager.incomingMessages.collect { frame ->
                 val senderId = frame.senderId
-                val effectiveText = frame.getEffectiveCiphertext()
                 if (frame.event == "message" && senderId.isNotBlank() && senderId != "server") {
-                    onIncomingMessage(senderId, effectiveText, frame.timestamp)
+                    processAndSaveIncomingMessage(frame)
                 }
             }
         }
@@ -136,33 +145,74 @@ class ConversationViewModel(
         }
     }
 
-    private fun onIncomingMessage(senderId: String, text: String, timestamp: Long) {
+    private fun processAndSaveIncomingMessage(frame: WsFrame) {
+        val senderId = frame.senderId
+        val effectiveCiphertext = frame.getEffectiveCiphertext()
+        val myUserId = sessionManager.getUserId() ?: ""
         val convId = "conv_$senderId"
-        AppLogger.i("FLOW_CONVERSATION", "📩 CONVERSATION LIST INCOMING MESSAGE -> senderId='$senderId', text='$text', convId='$convId'")
-        val currentList = _uiState.value.conversations.toMutableList()
-        val index = currentList.indexOfFirst { it.conversationId == convId }
 
-        if (index >= 0) {
-            val old = currentList[index]
-            currentList[index] = old.copy(
-                lastMessageText = text,
-                lastTimestamp = timestamp,
-                unreadCount = old.unreadCount + 1
-            )
-        } else {
-            currentList.add(
-                0,
-                ConversationEntity(
+        AppLogger.i("FLOW_CHAT", "📩 WEBSOCKET CHAT FRAME RECEIVED IN CONVERSATION VIEWMODEL -> sender='$senderId', messageId='${frame.messageId}', ciphertext='$effectiveCiphertext'")
+
+        viewModelScope.launch {
+            // Pre-derive shared secret on-the-fly for sender
+            val myPrivateKey = keyStore.getIdentityKeyPair()?.privateKey
+                ?: CryptoManager.generateIdentityKeyPair().privateKey
+
+            var secretKeyBytes: ByteArray? = null
+            try {
+                val keyBundleRes = NetworkClient.safeApiCall { apiService.getKeyBundle(senderId) }
+                if (keyBundleRes is NetworkResponse.Success) {
+                    val peerPubKey = keyBundleRes.data.identityKey
+                    secretKeyBytes = CryptoManager.deriveSharedSecret(myPrivateKey, peerPubKey)
+                    AppLogger.i("FLOW_CHAT", "🔑 Derived E2EE Shared Secret on-the-fly for sender '$senderId' in ConversationViewModel")
+                }
+            } catch (e: Exception) {
+                AppLogger.e("FLOW_CHAT", "Failed to derive E2EE key for sender '$senderId': ${e.message}")
+            }
+
+            val decrypted = try {
+                if (secretKeyBytes != null && effectiveCiphertext.isNotBlank()) {
+                    val payload = EncryptedPayload(ciphertext = effectiveCiphertext, iv = "")
+                    String(CryptoManager.decryptAesGcm(payload, secretKeyBytes), Charsets.UTF_8)
+                } else {
+                    effectiveCiphertext
+                }
+            } catch (e: Exception) {
+                AppLogger.e("FLOW_CHAT", "Failed to decrypt incoming message payload from '$senderId': ${e.message}", e)
+                effectiveCiphertext
+            }
+
+            AppLogger.i("FLOW_CHAT", "💬 DECRYPTED INCOMING MESSAGE CONTENT -> text='$decrypted' (sender='$senderId')")
+
+            val targetDb = db ?: DatabaseProvider.getInstance()
+            if (targetDb != null) {
+                val msgEntity = MessageEntity(
+                    messageId = if (frame.messageId.isNotBlank()) frame.messageId else UUID.randomUUID().toString(),
                     conversationId = convId,
-                    peerUserId = senderId,
-                    peerPhoneNumber = senderId,
-                    lastMessageText = text,
-                    lastTimestamp = timestamp,
-                    unreadCount = 1
+                    senderId = senderId,
+                    recipientId = myUserId,
+                    ciphertext = effectiveCiphertext,
+                    decryptedText = decrypted,
+                    timestamp = if (frame.timestamp > 0) frame.timestamp else System.currentTimeMillis(),
+                    isOutbound = false,
+                    status = "RECEIVED"
                 )
-            )
+                targetDb.messageDao().insertMessage(msgEntity)
+                targetDb.conversationDao().upsertConversation(
+                    ConversationEntity(
+                        conversationId = convId,
+                        peerUserId = senderId,
+                        peerPhoneNumber = senderId,
+                        lastMessageText = decrypted,
+                        lastTimestamp = msgEntity.timestamp,
+                        unreadCount = 1
+                    )
+                )
+                AppLogger.i("FLOW_CHAT", "💾 ROOM DB MSG SAVED SUCCESSFULLY -> msgId='${msgEntity.messageId}', convId='$convId', text='$decrypted'")
+            } else {
+                AppLogger.w("FLOW_CHAT", "⚠️ Database instance is null in ConversationViewModel, message save deferred for sender '$senderId'")
+            }
         }
-        _uiState.value = _uiState.value.copy(conversations = currentList)
     }
 
     fun searchUsers(query: String) {
