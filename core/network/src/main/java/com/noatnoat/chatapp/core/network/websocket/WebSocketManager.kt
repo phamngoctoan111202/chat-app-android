@@ -24,14 +24,26 @@ import okhttp3.WebSocketListener
 import java.util.concurrent.TimeUnit
 
 @Serializable
+data class WsDataPayload(
+    @SerialName("ciphertext") val ciphertext: String = "",
+    @SerialName("ephemeral_key") val ephemeralKey: String = ""
+)
+
+@Serializable
 data class WsFrame(
+    @SerialName("event") val event: String = "message",
     @SerialName("type") val type: String = "message",
     @SerialName("message_id") val messageId: String = "",
     @SerialName("sender_id") val senderId: String = "",
     @SerialName("recipient_id") val recipientId: String = "",
     @SerialName("ciphertext") val ciphertext: String = "",
+    @SerialName("data") val data: WsDataPayload? = null,
     @SerialName("timestamp") val timestamp: Long = System.currentTimeMillis()
-)
+) {
+    fun getEffectiveCiphertext(): String {
+        return if (ciphertext.isNotBlank()) ciphertext else data?.ciphertext.orEmpty()
+    }
+}
 
 sealed interface WsState {
     object Disconnected : WsState
@@ -43,8 +55,9 @@ sealed interface WsState {
 class WebSocketManager(
     private val customBaseUrl: String? = null
 ) {
-    private companion object {
-        const val TAG = "FLOW_WEBSOCKET"
+    companion object {
+        private const val TAG = "FLOW_WEBSOCKET"
+        val instance: WebSocketManager by lazy { WebSocketManager() }
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -68,6 +81,12 @@ class WebSocketManager(
     private var isExplicitDisconnect = false
     private var reconnectJob: kotlinx.coroutines.Job? = null
     private var consecutiveFailures = 0
+
+    private var tokenRefreshProvider: (suspend () -> String?)? = null
+
+    fun setTokenRefreshProvider(provider: (suspend () -> String?)?) {
+        this.tokenRefreshProvider = provider
+    }
 
     private val _connectionState = MutableStateFlow<WsState>(WsState.Disconnected)
     val connectionState: StateFlow<WsState> = _connectionState.asStateFlow()
@@ -144,8 +163,29 @@ class WebSocketManager(
                 consecutiveFailures++
 
                 if (isUnauthorized) {
-                    AppLogger.e(TAG, "401 Unauthorized detected. Stopping automatic reconnect attempts.", t)
-                    _connectionState.value = WsState.Error(t)
+                    AppLogger.e(TAG, "401 Unauthorized detected. Attempting token refresh...", t)
+                    val provider = tokenRefreshProvider
+                    if (provider != null) {
+                        scope.launch {
+                            try {
+                                val newToken = provider()
+                                if (!newToken.isNullOrBlank()) {
+                                    AppLogger.i(TAG, "Token refresh successful! Reconnecting WebSocket with new token...")
+                                    currentToken = newToken
+                                    consecutiveFailures = 0
+                                    attemptConnect(userId, newToken, targetUrlIndex = 0)
+                                    return@launch
+                                }
+                            } catch (refreshErr: Throwable) {
+                                AppLogger.e(TAG, "Token refresh exception: ${refreshErr.message}", refreshErr)
+                            }
+                            AppLogger.e(TAG, "Token refresh failed or returned blank. Stopping reconnect attempts.")
+                            _connectionState.value = WsState.Error(t)
+                        }
+                    } else {
+                        AppLogger.e(TAG, "No token refresh provider configured. Stopping reconnect attempts.")
+                        _connectionState.value = WsState.Error(t)
+                    }
                     return
                 }
 
@@ -181,9 +221,33 @@ class WebSocketManager(
         }
     }
 
+    fun isConnected(): Boolean {
+        return webSocket != null && _connectionState.value is WsState.Connected
+    }
+
+    fun ensureConnected(userId: String?, token: String?) {
+        if (!userId.isNullOrBlank() && !token.isNullOrBlank()) {
+            if (!isConnected() && _connectionState.value !is WsState.Connecting) {
+                AppLogger.i(TAG, "Auto-connecting WebSocket instance for user '$userId'...")
+                connect(userId, token)
+            }
+        }
+    }
+
     fun sendMessage(frame: WsFrame): Boolean {
-        val ws = webSocket ?: run {
-            AppLogger.w(TAG, "Cannot send message: WebSocket instance is null")
+        var ws = webSocket
+        if (ws == null) {
+            val uid = currentUserId
+            val tok = currentToken
+            if (!uid.isNullOrBlank() && !tok.isNullOrBlank()) {
+                AppLogger.i(TAG, "WebSocket instance was null, auto-triggering connect for user '$uid'")
+                connect(uid, tok)
+            }
+            ws = webSocket
+        }
+
+        if (ws == null) {
+            AppLogger.w(TAG, "Cannot send message: WebSocket instance is null and connection not established yet")
             return false
         }
         val jsonStr = json.encodeToString(frame)

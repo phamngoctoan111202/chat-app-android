@@ -52,6 +52,11 @@ interface ChatApiService {
         @Body request: com.noatnoat.chatapp.core.network.dto.LoginEmailRequest
     ): Response<AuthTokenResponse>
 
+    @POST("api/v1/auth/refresh")
+    suspend fun refreshToken(
+        @Body request: com.noatnoat.chatapp.core.network.dto.RefreshTokenRequest
+    ): Response<com.noatnoat.chatapp.core.network.dto.RefreshTokenResponse>
+
     @PUT("api/v1/keys")
     suspend fun uploadKeys(
         @Body request: UploadKeysRequest

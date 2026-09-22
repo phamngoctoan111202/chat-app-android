@@ -71,6 +71,16 @@ data class AuthTokenResponse(
 )
 
 @Serializable
+data class RefreshTokenRequest(
+    @SerialName("refresh_token") val refreshToken: String
+)
+
+@Serializable
+data class RefreshTokenResponse(
+    @SerialName("access_token") val accessToken: String
+)
+
+@Serializable
 data class PreKeyDto(
     @SerialName("key_id") val keyId: Int,
     @SerialName("public_key") val publicKey: String

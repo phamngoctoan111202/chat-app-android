@@ -14,7 +14,6 @@ import java.util.concurrent.TimeUnit
 object NetworkClient {
 
     const val DEFAULT_BASE_URL = "https://chatapp-backend-dyg1.onrender.com/"
-
     private val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.noatnoat.chatapp.core.crypto.CryptoManager
+import com.noatnoat.chatapp.core.crypto.model.EncryptedPayload
 import com.noatnoat.chatapp.core.crypto.SignalIdentityKeyStore
 import com.noatnoat.chatapp.core.database.entity.MessageEntity
 import com.noatnoat.chatapp.core.network.NetworkClient
@@ -22,6 +23,11 @@ import com.noatnoat.chatapp.core.database.ChatDatabase
 import com.noatnoat.chatapp.core.database.entity.ConversationEntity
 import com.noatnoat.chatapp.data.DatabaseProvider
 import com.noatnoat.chatapp.core.network.dto.BlockUserRequest
+import com.noatnoat.chatapp.core.network.websocket.WebSocketManager
+import com.noatnoat.chatapp.core.network.websocket.WsFrame
+import com.noatnoat.chatapp.core.network.logging.AppLogger
+
+private const val TAG = "FLOW_CHAT"
 
 data class CallState(
     val isCallActive: Boolean = false,
@@ -47,6 +53,7 @@ data class ChatUiState(
 class ChatViewModel(
     private val sessionManager: SecureSessionManager,
     private val keyStore: SignalIdentityKeyStore = SignalIdentityKeyStore(),
+    private val wsManager: WebSocketManager = WebSocketManager.instance,
     private val apiService: ChatApiService = NetworkClient.createApiService(
         tokenProvider = { sessionManager.getAccessToken() }
     )
@@ -59,14 +66,137 @@ class ChatViewModel(
     private var sharedSecret: ByteArray? = null
     private var webRtcEngine: WebRtcEngineManager? = null
 
+    init {
+        viewModelScope.launch {
+            wsManager.incomingMessages.collect { frame ->
+                if (frame.senderId.isNotBlank()) {
+                    onIncomingWebSocketMessage(frame)
+                }
+            }
+        }
+    }
+
+    private fun onIncomingWebSocketMessage(frame: WsFrame) {
+        // Ignore ACK confirmation frames and server control frames from chat payload processing
+        if (frame.event == "ack" || frame.senderId == "server" || frame.senderId.isBlank()) {
+            AppLogger.d(TAG, "Received ACK or server control frame, skipping chat message processing (event='${frame.event}')")
+            return
+        }
+
+        val currentPeer = _uiState.value.peerUserId
+        val myUserId = sessionManager.getUserId() ?: ""
+
+        if (frame.senderId == currentPeer || frame.recipientId == myUserId) {
+            val convId = "conv_${frame.senderId}"
+            val effectiveCiphertext = frame.getEffectiveCiphertext()
+
+            AppLogger.i(TAG, "📩 WEBSOCKET INCOMING CHAT FRAME -> sender='${frame.senderId}', recipient='$myUserId', messageId='${frame.messageId}', ciphertext='$effectiveCiphertext'")
+
+            viewModelScope.launch {
+                // Pre-derive shared secret if missing for this sender
+                if (sharedSecret == null && frame.senderId.isNotBlank() && frame.senderId != "my_user_id") {
+                    try {
+                        val keyBundleRes = NetworkClient.safeApiCall { apiService.getKeyBundle(frame.senderId) }
+                        if (keyBundleRes is NetworkResponse.Success) {
+                            val peerPubKey = keyBundleRes.data.identityKey
+                            val myPrivateKey = keyStore.getIdentityKeyPair()?.privateKey
+                                ?: CryptoManager.generateIdentityKeyPair().privateKey
+                            sharedSecret = CryptoManager.deriveSharedSecret(myPrivateKey, peerPubKey)
+                            AppLogger.i(TAG, "🔑 Derived E2EE Shared Secret on-the-fly for sender '${frame.senderId}'")
+                        }
+                    } catch (e: Exception) {
+                        AppLogger.e(TAG, "Failed to derive E2EE key on-the-fly: ${e.message}")
+                    }
+                }
+
+                val decrypted = try {
+                    if (sharedSecret != null && effectiveCiphertext.isNotBlank()) {
+                        val payload = EncryptedPayload(
+                            ciphertext = effectiveCiphertext,
+                            iv = ""
+                        )
+                        String(CryptoManager.decryptAesGcm(payload, sharedSecret!!), Charsets.UTF_8)
+                    } else {
+                        effectiveCiphertext
+                    }
+                } catch (e: Exception) {
+                    AppLogger.e(TAG, "Failed to decrypt incoming message payload: ${e.message}", e)
+                    effectiveCiphertext
+                }
+
+                AppLogger.i(TAG, "💬 REAL-TIME CHAT DECRYPTED CONTENT -> text='$decrypted' (sender='${frame.senderId}')")
+
+                val msg = MessageEntity(
+                    messageId = if (frame.messageId.isNotBlank()) frame.messageId else UUID.randomUUID().toString(),
+                    conversationId = convId,
+                    senderId = frame.senderId,
+                    recipientId = myUserId,
+                    ciphertext = effectiveCiphertext,
+                    decryptedText = decrypted,
+                    timestamp = if (frame.timestamp > 0) frame.timestamp else System.currentTimeMillis(),
+                    isOutbound = false,
+                    status = "RECEIVED"
+                )
+
+                val targetDb = db ?: DatabaseProvider.getInstance()
+                if (targetDb != null) {
+                    targetDb.messageDao().insertMessage(msg)
+                    targetDb.conversationDao().upsertConversation(
+                        ConversationEntity(
+                            conversationId = convId,
+                            peerUserId = frame.senderId,
+                            peerPhoneNumber = frame.senderId,
+                            lastMessageText = decrypted,
+                            lastTimestamp = msg.timestamp,
+                            unreadCount = 0
+                        )
+                    )
+                    AppLogger.i(TAG, "💾 ROOM DB MSG SAVED SUCCESSFULLY -> msgId='${msg.messageId}', convId='$convId', text='$decrypted'")
+                } else {
+                    AppLogger.w(TAG, "⚠️ Database instance is null in ChatViewModel, message save deferred. Ensure loadConversation() is called!")
+                }
+            }
+        }
+    }
+
     fun loadConversation(context: Context, peerUserId: String) {
         val database = DatabaseProvider.getDatabase(context)
         db = database
         _uiState.value = _uiState.value.copy(peerUserId = peerUserId)
         val convId = "conv_$peerUserId"
 
+        // Ensure WebSocket is connected for current authenticated user
+        wsManager.ensureConnected(sessionManager.getUserId(), sessionManager.getAccessToken())
+
+        AppLogger.i(TAG, "Loading conversation for peerUserId: '$peerUserId', convId: '$convId'")
+
+        // Pre-derive E2EE Shared Secret for peer if not already loaded
+        viewModelScope.launch {
+            if (sharedSecret == null) {
+                try {
+                    val keyBundleRes = NetworkClient.safeApiCall { apiService.getKeyBundle(peerUserId) }
+                    val peerPubKey = if (keyBundleRes is NetworkResponse.Success) {
+                        keyBundleRes.data.identityKey
+                    } else {
+                        CryptoManager.generateIdentityKeyPair().publicKey
+                    }
+                    val myPrivateKey = keyStore.getIdentityKeyPair()?.privateKey
+                        ?: CryptoManager.generateIdentityKeyPair().privateKey
+
+                    sharedSecret = CryptoManager.deriveSharedSecret(
+                        privateKeyBase64 = myPrivateKey,
+                        publicKeyBase64 = peerPubKey
+                    )
+                    AppLogger.i(TAG, "🔑 Shared secret derived successfully for peer '$peerUserId'")
+                } catch (e: Exception) {
+                    AppLogger.e(TAG, "Failed to derive shared secret: ${e.message}", e)
+                }
+            }
+        }
+
         viewModelScope.launch {
             database.messageDao().getMessagesForConversation(convId).collect { msgList ->
+                AppLogger.i(TAG, "💬 Chat UI updated with ${msgList.size} messages for convId '$convId'")
                 _uiState.value = _uiState.value.copy(messages = msgList)
             }
         }
@@ -81,13 +211,14 @@ class ChatViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSending = true, error = null)
 
+            AppLogger.i(TAG, "✉️ OUTBOUND CHAT MESSAGE -> plainText='$plainText', recipient='$peerUserId'")
+
             // Step 1: Derive shared secret if not already cached
             if (sharedSecret == null) {
                 val keyBundleRes = NetworkClient.safeApiCall { apiService.getKeyBundle(peerUserId) }
                 val peerPubKey = if (keyBundleRes is NetworkResponse.Success) {
                     keyBundleRes.data.identityKey
                 } else {
-                    // Fallback to local generated peer key for demo mode
                     CryptoManager.generateIdentityKeyPair().publicKey
                 }
 
@@ -98,6 +229,7 @@ class ChatViewModel(
                     privateKeyBase64 = myPrivateKey,
                     publicKeyBase64 = peerPubKey
                 )
+                AppLogger.i(TAG, "🔑 Derived E2EE Shared Secret for outbound message to '$peerUserId'")
             }
 
             // Step 2: Encrypt message payload with AES-GCM
@@ -106,20 +238,25 @@ class ChatViewModel(
                 plainText = plainText.toByteArray(Charsets.UTF_8),
                 secretKeyBytes = secretKey
             )
+            AppLogger.i(TAG, "🔒 ENCRYPTED AES-GCM CIPHERTEXT -> ciphertext='${encryptedPayload.ciphertext}'")
 
-            // Step 3: Send to backend
-            val sendRes = NetworkClient.safeApiCall {
-                apiService.sendMessage(
-                    SendMessageRequest(
-                        recipientId = peerUserId,
-                        ciphertext = encryptedPayload.ciphertext,
-                        type = 1
-                    )
-                )
-            }
+            val msgId = UUID.randomUUID().toString()
+            val timestamp = System.currentTimeMillis()
 
-            val timestamp = if (sendRes is NetworkResponse.Success) sendRes.data.timestamp else System.currentTimeMillis()
-            val msgId = if (sendRes is NetworkResponse.Success) sendRes.data.messageId else UUID.randomUUID().toString()
+            // Step 3: Transmit via WebSocket Real-time Gateway
+            val frame = WsFrame(
+                event = "message",
+                type = "message",
+                messageId = msgId,
+                senderId = currentUserId,
+                recipientId = peerUserId,
+                ciphertext = encryptedPayload.ciphertext,
+                data = com.noatnoat.chatapp.core.network.websocket.WsDataPayload(ciphertext = encryptedPayload.ciphertext),
+                timestamp = timestamp
+            )
+
+            val wsSuccess = wsManager.sendMessage(frame)
+            AppLogger.i(TAG, "🚀 TRANSMITTED WEBSOCKET FRAME -> recipient='$peerUserId', msgId='$msgId', plainText='$plainText', success=$wsSuccess")
 
             val convId = "conv_$peerUserId"
             val newMsg = MessageEntity(
@@ -131,7 +268,7 @@ class ChatViewModel(
                 decryptedText = plainText,
                 timestamp = timestamp,
                 isOutbound = true,
-                status = if (sendRes is NetworkResponse.Success) "SENT" else "PENDING"
+                status = if (wsSuccess) "SENT" else "PENDING"
             )
 
             db?.messageDao()?.insertMessage(newMsg)

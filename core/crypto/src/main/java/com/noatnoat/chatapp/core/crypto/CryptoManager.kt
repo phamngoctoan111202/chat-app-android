@@ -115,24 +115,55 @@ object CryptoManager {
         val gcmSpec = GCMParameterSpec(AES_GCM_TAG_LENGTH, iv)
         cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmSpec)
 
-        val ciphertext = cipher.doFinal(plainText)
+        val cipherBytes = cipher.doFinal(plainText)
+        val combined = ByteArray(iv.size + cipherBytes.size)
+        System.arraycopy(iv, 0, combined, 0, iv.size)
+        System.arraycopy(cipherBytes, 0, combined, iv.size, cipherBytes.size)
+
+        android.util.Log.d("FLOW_CRYPTO", "🔒 Encrypted ${plainText.size} bytes plaintext -> Packed 12-byte IV, total combined raw payload: ${combined.size} bytes")
 
         return EncryptedPayload(
-            ciphertext = encodeBase64(ciphertext),
+            ciphertext = encodeBase64(combined),
             iv = encodeBase64(iv)
         )
     }
 
     fun decryptAesGcm(encryptedPayload: EncryptedPayload, secretKeyBytes: ByteArray): ByteArray {
-        val iv = decodeBase64(encryptedPayload.iv)
-        val ciphertext = decodeBase64(encryptedPayload.ciphertext)
+        val rawBytes = decodeBase64(encryptedPayload.ciphertext)
+        val explicitIv = if (encryptedPayload.iv.isNotBlank()) decodeBase64(encryptedPayload.iv) else ByteArray(0)
+
+        val ivBytes: ByteArray
+        val cipherBytes: ByteArray
+
+        if (rawBytes.size >= GCM_IV_LENGTH) {
+            val prependedIv = rawBytes.copyOfRange(0, GCM_IV_LENGTH)
+            if (explicitIv.size == GCM_IV_LENGTH && !explicitIv.contentEquals(prependedIv)) {
+                // Legacy case: rawBytes contains no prepended IV, explicitIv was passed separately
+                ivBytes = explicitIv
+                cipherBytes = rawBytes
+                android.util.Log.d("FLOW_CRYPTO", "🔓 Decrypting LEGACY payload: explicit IV (${ivBytes.size} bytes), raw ciphertext (${cipherBytes.size} bytes)")
+            } else {
+                // Standard packed case: first 12 bytes of rawBytes are IV, remaining bytes are ciphertext
+                ivBytes = prependedIv
+                cipherBytes = rawBytes.copyOfRange(GCM_IV_LENGTH, rawBytes.size)
+                android.util.Log.d("FLOW_CRYPTO", "🔓 Decrypting PACKED payload: extracted prepended IV (${ivBytes.size} bytes), cipherBytes (${cipherBytes.size} bytes)")
+            }
+        } else if (explicitIv.size == GCM_IV_LENGTH) {
+            ivBytes = explicitIv
+            cipherBytes = rawBytes
+            android.util.Log.d("FLOW_CRYPTO", "🔓 Decrypting UNPACKED payload: explicit IV (${ivBytes.size} bytes), raw ciphertext (${cipherBytes.size} bytes)")
+        } else {
+            throw IllegalArgumentException("Invalid AES-GCM payload: missing 12-byte IV")
+        }
 
         val secretKey = SecretKeySpec(secretKeyBytes, "AES")
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        val gcmSpec = GCMParameterSpec(AES_GCM_TAG_LENGTH, iv)
+        val gcmSpec = GCMParameterSpec(AES_GCM_TAG_LENGTH, ivBytes)
         cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec)
 
-        return cipher.doFinal(ciphertext)
+        val decrypted = cipher.doFinal(cipherBytes)
+        android.util.Log.d("FLOW_CRYPTO", "✅ Decryption SUCCESSFUL -> Output ${decrypted.size} bytes plaintext")
+        return decrypted
     }
 
     private fun parsePublicKey(base64Str: String): PublicKey {

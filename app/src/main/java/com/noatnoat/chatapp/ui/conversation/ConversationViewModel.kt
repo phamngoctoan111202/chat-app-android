@@ -17,6 +17,9 @@ import com.noatnoat.chatapp.core.database.ChatDatabase
 import com.noatnoat.chatapp.data.DatabaseProvider
 
 import com.noatnoat.chatapp.core.network.dto.UserSearchResultDto
+import com.noatnoat.chatapp.core.network.logging.AppLogger
+
+private const val SEARCH_TAG = "FLOW_USER_SEARCH"
 
 data class ConversationUiState(
     val conversations: List<ConversationEntity> = emptyList(),
@@ -27,7 +30,7 @@ data class ConversationUiState(
 
 class ConversationViewModel(
     private val sessionManager: SecureSessionManager,
-    private val wsManager: WebSocketManager = WebSocketManager(),
+    private val wsManager: WebSocketManager = WebSocketManager.instance,
     private val apiService: com.noatnoat.chatapp.core.network.api.ChatApiService = com.noatnoat.chatapp.core.network.NetworkClient.createApiService(
         tokenProvider = { sessionManager.getAccessToken() }
     )
@@ -43,6 +46,25 @@ class ConversationViewModel(
         val token = sessionManager.getAccessToken()
         _uiState.value = _uiState.value.copy(currentUserId = userId)
 
+        // Configure token refresh provider for WebSocket
+        wsManager.setTokenRefreshProvider {
+            val refreshToken = sessionManager.getRefreshToken()
+            if (refreshToken.isNullOrBlank()) return@setTokenRefreshProvider null
+            val result = com.noatnoat.chatapp.core.network.NetworkClient.safeApiCall {
+                apiService.refreshToken(com.noatnoat.chatapp.core.network.dto.RefreshTokenRequest(refreshToken))
+            }
+            when (result) {
+                is com.noatnoat.chatapp.core.network.model.NetworkResponse.Success -> {
+                    val newAccessToken = result.data.accessToken
+                    if (newAccessToken.isNotBlank()) {
+                        sessionManager.updateAccessToken(newAccessToken)
+                        newAccessToken
+                    } else null
+                }
+                else -> null
+            }
+        }
+
         // Connect to WebSocket Gateway with JWT access token
         wsManager.connect(userId, token)
 
@@ -55,8 +77,10 @@ class ConversationViewModel(
         // Listen for incoming WebSocket messages
         viewModelScope.launch {
             wsManager.incomingMessages.collect { frame ->
-                if (frame.senderId.isNotBlank()) {
-                    onIncomingMessage(frame.senderId, frame.ciphertext, frame.timestamp)
+                val senderId = frame.senderId
+                val effectiveText = frame.getEffectiveCiphertext()
+                if (frame.event == "message" && senderId.isNotBlank() && senderId != "server") {
+                    onIncomingMessage(senderId, effectiveText, frame.timestamp)
                 }
             }
         }
@@ -73,14 +97,20 @@ class ConversationViewModel(
         val database = DatabaseProvider.getDatabase(context)
         db = database
         viewModelScope.launch {
+            // Auto-purge legacy ACK server conversation entries from local database
+            database.conversationDao().deleteConversation("conv_server")
+            database.messageDao().deleteMessagesForConversation("conv_server")
+
             database.conversationDao().getAllConversations().collect { convList ->
-                _uiState.value = _uiState.value.copy(conversations = convList)
+                val filtered = convList.filter { it.peerUserId != "server" && it.conversationId != "conv_server" }
+                _uiState.value = _uiState.value.copy(conversations = filtered)
             }
         }
     }
 
     fun startNewConversation(peerUserId: String, phoneNumber: String = "") {
         if (peerUserId.isBlank()) return
+        AppLogger.i(SEARCH_TAG, "Starting new conversation with peerUserId: '$peerUserId', phone: '$phoneNumber'")
         val convId = "conv_$peerUserId"
 
         val newConv = ConversationEntity(
@@ -108,6 +138,7 @@ class ConversationViewModel(
 
     private fun onIncomingMessage(senderId: String, text: String, timestamp: Long) {
         val convId = "conv_$senderId"
+        AppLogger.i("FLOW_CONVERSATION", "📩 CONVERSATION LIST INCOMING MESSAGE -> senderId='$senderId', text='$text', convId='$convId'")
         val currentList = _uiState.value.conversations.toMutableList()
         val index = currentList.indexOfFirst { it.conversationId == convId }
 
@@ -136,24 +167,32 @@ class ConversationViewModel(
 
     fun searchUsers(query: String) {
         if (query.isBlank()) {
+            AppLogger.d(SEARCH_TAG, "Search query is blank, clearing search results.")
             _uiState.value = _uiState.value.copy(searchResults = emptyList())
             return
         }
         viewModelScope.launch {
+            AppLogger.i(SEARCH_TAG, "Initiating user search request for query: '$query'")
             val response = com.noatnoat.chatapp.core.network.NetworkClient.safeApiCall {
                 apiService.searchUsers(query)
             }
-            if (response is com.noatnoat.chatapp.core.network.model.NetworkResponse.Success) {
-                _uiState.value = _uiState.value.copy(searchResults = response.data)
-            } else {
-                val fallback = listOf(
-                    UserSearchResultDto(
-                        userId = if (query.startsWith("user_")) query else "user_" + query.takeLast(6),
-                        username = if (query.startsWith("user_")) query else "Người dùng $query",
-                        phoneNumber = query
-                    )
-                )
-                _uiState.value = _uiState.value.copy(searchResults = fallback)
+            when (response) {
+                is com.noatnoat.chatapp.core.network.model.NetworkResponse.Success -> {
+                    AppLogger.i(SEARCH_TAG, "User search successful for '$query'. Found ${response.data.size} matched user(s).")
+                    _uiState.value = _uiState.value.copy(searchResults = response.data)
+                }
+                is com.noatnoat.chatapp.core.network.model.NetworkResponse.ApiError -> {
+                    AppLogger.w(SEARCH_TAG, "User search API returned error (code=${response.code}): ${response.message}")
+                    _uiState.value = _uiState.value.copy(searchResults = emptyList())
+                }
+                is com.noatnoat.chatapp.core.network.model.NetworkResponse.NetworkError -> {
+                    AppLogger.e(SEARCH_TAG, "User search network failure for query '$query'", response.error)
+                    _uiState.value = _uiState.value.copy(searchResults = emptyList())
+                }
+                is com.noatnoat.chatapp.core.network.model.NetworkResponse.UnknownError -> {
+                    AppLogger.e(SEARCH_TAG, "User search encountered an unknown error")
+                    _uiState.value = _uiState.value.copy(searchResults = emptyList())
+                }
             }
         }
     }

@@ -8,6 +8,8 @@ object DatabaseProvider {
     @Volatile
     private var INSTANCE: ChatDatabase? = null
 
+    fun getInstance(): ChatDatabase? = INSTANCE
+
     fun getDatabase(context: Context): ChatDatabase {
         return INSTANCE ?: synchronized(this) {
             val instance = Room.databaseBuilder(

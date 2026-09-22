@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+import com.noatnoat.chatapp.core.network.websocket.WebSocketManager
 import android.app.Activity
 
 sealed interface AuthUiState {
@@ -34,6 +35,7 @@ sealed interface AuthUiState {
 class AuthViewModel(
     private val sessionManager: SecureSessionManager,
     private val keyStore: SignalIdentityKeyStore = SignalIdentityKeyStore(),
+    private val wsManager: WebSocketManager = WebSocketManager.instance,
     private val apiService: ChatApiService = NetworkClient.createApiService(
         tokenProvider = { sessionManager.getAccessToken() }
     )
@@ -226,6 +228,7 @@ class AuthViewModel(
                         accessToken = tokenData.accessToken,
                         refreshToken = tokenData.refreshToken
                     )
+                    wsManager.connect(tokenData.userId, tokenData.accessToken)
 
                     // Generate E2EE local key bundle & sync to backend
                     val localBundle = CryptoManager.generateFullLocalKeyBundle()
@@ -290,6 +293,7 @@ class AuthViewModel(
                         accessToken = tokenData.accessToken,
                         refreshToken = tokenData.refreshToken
                     )
+                    wsManager.connect(tokenData.userId, tokenData.accessToken)
 
                     val uploadReq = UploadKeysRequest(
                         identityKey = localBundle.identityKeyPair.publicKey,

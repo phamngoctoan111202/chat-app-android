@@ -397,8 +397,8 @@ fun UserSearchDialog(
                             keyboardActions = KeyboardActions(
                                 onSearch = {
                                     if (searchQuery.isNotBlank()) {
-                                        val peerId = if (searchQuery.startsWith("user_")) searchQuery else "user_" + searchQuery.takeLast(6)
-                                        onUserSelected(peerId)
+                                        AppLogger.i("FLOW_USER_SEARCH", "Submitted search query via keyboard: '$searchQuery'")
+                                        viewModel.searchUsers(searchQuery)
                                     }
                                 }
                             ),
@@ -468,6 +468,7 @@ fun UserSearchDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
+                                AppLogger.i("FLOW_USER_SEARCH", "Selected user from search list: ${userResult.userId} (${userResult.username})")
                                 onUserSelected(userResult.userId)
                             }
                             .padding(vertical = 10.dp),
