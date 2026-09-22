@@ -25,7 +25,10 @@ coil = "2.6.0"
 mapsCompose = "4.3.3"
 playServicesMaps = "18.2.0"
 
+securityCrypto = "1.1.0-alpha06"
+
 [libraries]
+androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "securityCrypto" }
 maps-compose = { module = "com.google.maps.android:maps-compose", version.ref = "mapsCompose" }
 play-services-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "playServicesMaps" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }

@@ -16,6 +16,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    com.noatnoat.chatapp.core.crypto.SignalIdentityKeyStore.init(this)
 
     // Log FCM Token for testing (Debug Mode Only)
     FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->

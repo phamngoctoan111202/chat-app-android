@@ -111,7 +111,7 @@ class AuthViewModel(
             _uiState.value = AuthUiState.Loading
 
             try {
-                val localBundle = CryptoManager.generateFullLocalKeyBundle()
+                val localBundle = keyStore.getOrCreateLocalKeyBundle()
                 keyStore.saveLocalKeyBundle(localBundle)
 
                 val validJwtDevToken = "dev_access_token_$devUserId"
@@ -230,8 +230,8 @@ class AuthViewModel(
                     )
                     wsManager.connect(tokenData.userId, tokenData.accessToken)
 
-                    // Generate E2EE local key bundle & sync to backend
-                    val localBundle = CryptoManager.generateFullLocalKeyBundle()
+                    // Reuse persistent E2EE local key bundle & sync to backend
+                    val localBundle = keyStore.getOrCreateLocalKeyBundle()
                     keyStore.saveLocalKeyBundle(localBundle)
 
                     val uploadReq = UploadKeysRequest(
@@ -270,7 +270,7 @@ class AuthViewModel(
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
 
-            val localBundle = CryptoManager.generateFullLocalKeyBundle()
+            val localBundle = keyStore.getOrCreateLocalKeyBundle()
             keyStore.saveLocalKeyBundle(localBundle)
 
             val req = FirebasePhoneLoginRequest(
@@ -365,7 +365,7 @@ class AuthViewModel(
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
 
-            val localBundle = CryptoManager.generateFullLocalKeyBundle()
+            val localBundle = keyStore.getOrCreateLocalKeyBundle()
             keyStore.saveLocalKeyBundle(localBundle)
 
             val req = com.noatnoat.chatapp.core.network.dto.RegisterEmailRequest(
@@ -431,7 +431,7 @@ class AuthViewModel(
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
 
-            val localBundle = CryptoManager.generateFullLocalKeyBundle()
+            val localBundle = keyStore.getOrCreateLocalKeyBundle()
             keyStore.saveLocalKeyBundle(localBundle)
 
             val req = com.noatnoat.chatapp.core.network.dto.LoginEmailRequest(
